@@ -960,9 +960,15 @@ async function saveData(){
 function exportData(){
   const json=JSON.stringify(getPayload(),null,2);
   const fname="LiveModeTVnoMundialInLoco.json";
-  document.getElementById("export-json").value=json;
-  document.getElementById("export-filename").textContent=fname;
-  document.getElementById("export-modal").style.display="flex";
+  const blob=new Blob([json],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 document.getElementById("export-copy-btn").addEventListener("click",function(){
