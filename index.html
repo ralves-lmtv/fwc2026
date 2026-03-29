@@ -930,7 +930,8 @@ function renderDashboard(){
 // ═══════════════════════════════════════════════
 // GUARDAR / EXPORTAR / IMPORTAR
 // ═══════════════════════════════════════════════
-const APPS_SCRIPT_URL="https://script.google.com/a/macros/livemode.com/s/AKfycbzMqIIEmi0K1nyTShX9a-uhL0JCjYPabdTR4xs5x3A4TzFLjbPIZPOD2FRGJsby-cvf/exec";
+const DRIVE_FILE_ID="17elqmlCUZ97SufXpNk8orT0wSPsZ3ONR";
+const DRIVE_URL=`https://drive.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
 
 function getPayload(){return{S,DAYINFO,globals:{perDiem:PER_DIEM,transportDefault:TRANSPORT_DEFAULT}};}
 
@@ -1002,19 +1003,19 @@ function onFileLoad(e){
 }
 
 async function loadFromStorage(){
-  // Tenta carregar do Google Sheets primeiro
+  // Tenta carregar do Google Drive primeiro
   try{
-    const res=await fetch(`${APPS_SCRIPT_URL}?action=load`);
+    const res=await fetch(DRIVE_URL);
     const data=await res.json();
-    if(data&&!data.empty&&!data.error){
+    if(data&&!data.empty){
       applyLoadedData(data);
-      document.getElementById("header-status").textContent="✓ Sincronizado com Google Sheets";
+      document.getElementById("header-status").textContent="✓ Dados carregados do Drive";
       return;
     }
   }catch(e){
-    console.warn("Sheets indisponível, a tentar storage local:",e.message);
+    console.warn("Drive indisponível, a tentar storage local:",e.message);
   }
-  // Fallback: storage local do Claude
+  // Fallback: storage local
   try{
     const res=await window.storage.get("wc2026_logistica");
     if(res){applyLoadedData(JSON.parse(res.value));document.getElementById("header-status").textContent="✓ Dados restaurados (local)";}
