@@ -1,64 +1,1026 @@
-// ═══════════════════════════════════════════════════════
-// LIVEMODETV NO MUNDIAL 2026 — Google Apps Script API
-// ═══════════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVEMODETV NO MUNDIAL 2026 — Cobertura In Loco</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a18;min-height:100vh}
+#login-screen{position:fixed;inset:0;background:#1a1a18;display:flex;align-items:center;justify-content:center;z-index:9999}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:360px;text-align:center}
+.login-box h2{font-size:18px;font-weight:700;margin-bottom:4px}
+.login-box .lsub{font-size:12px;color:#888780;margin-bottom:24px}
+.login-field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;text-align:left}
+.login-field label{font-size:11px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.05em}
+.login-field input{padding:9px 12px;border:1px solid #d3d1c7;border-radius:8px;font-size:14px;outline:none}
+.login-field input:focus{border-color:#1a1a18}
+.login-btn{width:100%;padding:10px;background:#1a1a18;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px}
+.login-btn:hover{background:#333}
+.login-error{color:#E24B4A;font-size:12px;margin-top:8px;display:none}
+header{background:#fff;border-bottom:1px solid #e0ded8;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:12px;flex-wrap:wrap}
+header h1{font-size:16px;font-weight:600}
+.hbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hbtn{padding:6px 14px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500;border:1px solid #d3d1c7;background:#fff;color:#1a1a18}
+.hbtn:hover{background:#f5f5f3}
+.hbtn.save{background:#1a1a18;color:#fff;border-color:#1a1a18}
+#file-input{display:none}
+.tabs{background:#fff;border-bottom:1px solid #e0ded8;padding:0 24px;display:flex}
+.tab{padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;color:#888780;user-select:none}
+.tab:hover{color:#1a1a18}
+.tab.active{color:#1a1a18;border-bottom-color:#1a1a18}
+.main{padding:20px 24px;max-width:1600px;margin:0 auto}
+.view{display:none}.view.active{display:block}
 
-const SHEET_NAME = "dados";
+/* ALOJAMENTO */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.metric{background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:14px 16px}
+.metric .lbl{font-size:12px;color:#888780;margin-bottom:4px}
+.metric .val{font-size:26px;font-weight:600}
+.metric .sub{font-size:11px;color:#b4b2a9;margin-top:2px}
+.layout{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:flex-start}
+.panel-title{font-size:11px;font-weight:600;color:#888780;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.phase-label{font-size:10px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.08em;padding:6px 4px 3px;margin-top:4px}
+.day-card{background:#fff;border:1px solid #e8e6df;border-radius:10px;padding:10px 14px;margin-bottom:5px;cursor:pointer}
+.day-card:hover{background:#f8f7f4}
+.day-card.selected{border-color:#1a1a18;background:#f8f7f4}
+.day-card.complete{border-left:3px solid #1D9E75}
+.day-card.partial{border-left:3px solid #BA7517}
+.day-card.empty{border-left:3px solid #E24B4A}
+.day-card.nocover{opacity:.55}
+.sdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.detail-card{background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:16px 20px}
+.detail-placeholder{background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:40px 20px;text-align:center;color:#b4b2a9;font-size:14px}
+h4{font-size:14px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;font-size:11px;color:#888780;padding:6px 10px;border-bottom:1px solid #e8e6df;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #f1efe8;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+select{padding:5px 8px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;color:#1a1a18;font-size:12px;cursor:pointer;outline:none}
+select.miss{border-color:#E24B4A;background:#fff8f8}
+input[type=text]{padding:5px 9px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;color:#1a1a18;font-size:12px;outline:none}
+input[type=number]{padding:5px 8px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;color:#1a1a18;font-size:12px;outline:none;width:90px}
+input.miss{border-color:#E24B4A;background:#fff8f8}
+.btn{padding:5px 12px;border:1px solid #d3d1c7;border-radius:7px;background:#fff;cursor:pointer;font-size:12px;color:#1a1a18}
+.btn:hover{background:#f5f5f3}
+.btn.active{background:#1a1a18;color:#fff;border-color:#1a1a18}
+.avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.dept-row td{font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.06em;background:#f8f7f4;padding:5px 10px}
+.trow{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.pill{font-size:10px;padding:2px 8px;border-radius:20px;display:inline-block}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f1efe8}
+.ok-ok{color:#1D9E75;font-size:15px;font-weight:700}
+.ok-warn{color:#BA7517;font-size:15px;font-weight:700}
+.ok-err{color:#E24B4A;font-size:15px;font-weight:700}
+.alert-box{background:#FFF8F0;border:1px solid #FAC775;border-radius:8px;padding:8px 12px;font-size:12px;color:#633806;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.game-box{background:#f8f7f4;border:1px solid #e8e6df;border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.gb-title{font-size:11px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.hotel-block{display:flex;flex-direction:column;gap:5px}
+.hotel-label{font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.04em}
+.cost-badge{font-size:10px;color:#1D9E75;font-weight:600}
 
-function doGet(e) {
-  const output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-  try {
-    const action = e.parameter.action;
-    if (action === "load") {
-      output.setContent(JSON.stringify(loadData()));
+/* DASHBOARD */
+.dash-grid{display:grid;gap:16px}
+.kpi-row{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.kpi{background:#fff;border:1px solid #e8e6df;border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi-icon{font-size:22px;margin-bottom:5px}
+.kpi-val{font-size:24px;font-weight:700;line-height:1;margin-bottom:3px}
+.kpi-lbl{font-size:11px;color:#888780;font-weight:500}
+.kpi-sub{font-size:10px;color:#b4b2a9;margin-top:2px}
+.kpi-accent{position:absolute;right:-10px;top:-10px;width:60px;height:60px;border-radius:50%;opacity:.07}
+.section-card{background:#fff;border:1px solid #e8e6df;border-radius:14px;padding:18px 20px}
+.section-title{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.bar-group{display:flex;flex-direction:column;gap:7px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{font-size:12px;min-width:110px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-label.sm{min-width:80px;font-size:11px}
+.bar-track{flex:1;background:#f1efe8;border-radius:20px;height:9px;overflow:hidden}
+.bar-fill{height:100%;border-radius:20px}
+.bar-val{font-size:11px;color:#888780;min-width:70px;text-align:right}
+.bar-val.bold{font-weight:700;color:#1a1a18}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1efe8}
+.stat-row:last-child{border-bottom:none}
+.divider{height:1px;background:#f1efe8;margin:12px 0}
+.mini-label{font-size:10px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.cdot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* JOGOS */
+.jogo-card{background:#fff;border:1px solid #e8e6df;border-radius:12px;padding:16px 20px;margin-bottom:10px}
+.jogo-field{display:flex;flex-direction:column;gap:3px}
+.jogo-field label{font-size:10px;font-weight:600;color:#888780;text-transform:uppercase;letter-spacing:.04em}
+.jogo-field input,.jogo-field select{padding:6px 9px;border:1px solid #d3d1c7;border-radius:7px;font-size:12px;outline:none;width:100%;background:#fff;color:#1a1a18}
+.pitch-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.pitch-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:8px;border:1px solid #e8e6df;background:#f8f7f4;cursor:pointer;user-select:none}
+.pitch-item.selected{background:#E1F5EE;border-color:#1D9E75}
+.pitch-item-name{font-size:11px;font-weight:500}
+.pitch-item-price{font-size:11px;color:#888780}
+.pitch-item.selected .pitch-item-price{color:#085041}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:#fff;border-radius:14px;padding:24px;max-width:680px;width:100%;max-height:88vh;display:flex;flex-direction:column;gap:12px}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div style="font-size:36px;margin-bottom:12px">⚽</div>
+    <h2>LIVEMODETV</h2>
+    <p class="lsub">Mundial 2026 — Cobertura In Loco</p>
+    <div class="login-field">
+      <label>Utilizador</label>
+      <input type="text" id="login-user" placeholder="utilizador" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="login-error">Utilizador ou senha incorretos.</div>
+  </div>
+</div>
+
+<div id="main-app" style="display:none">
+<header>
+  <h1>LIVEMODETV NO MUNDIAL 2026 — Cobertura In Loco</h1>
+  <div class="hbtns">
+    <span id="header-status" style="font-size:12px;color:#888780">—</span>
+    <button class="hbtn" onclick="triggerImport()">⬆ Importar JSON</button>
+    <button class="hbtn" onclick="exportData()">⬇ Exportar JSON</button>
+    <button class="hbtn save" onclick="saveData()">💾 Guardar</button>
+    <input type="file" id="file-input" accept=".json" onchange="onFileLoad(event)">
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="switchTab('jogos')">🎙️ Partidas</div>
+  <div class="tab" onclick="switchTab('alojamento')">🏨 Logística</div>
+</div>
+
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view active">
+    <div class="dash-grid">
+      <div class="section-card" style="padding:12px 20px">
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.05em">Valores globais</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">🍽️ Per diem/pessoa/dia</span>
+            <input type="number" id="input-perdiem" min="0" step="10" value="100" style="width:75px;padding:4px 8px;border:1px solid #d3d1c7;border-radius:7px;font-size:12px;outline:none" onchange="updateGlobal()" onblur="updateGlobal()">
+            <span style="font-size:11px;color:#888780">€</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">🚐 Transporte/dia (defeito)</span>
+            <input type="number" id="input-transport" min="0" step="10" value="100" style="width:75px;padding:4px 8px;border:1px solid #d3d1c7;border-radius:7px;font-size:12px;outline:none" onchange="updateGlobal()" onblur="updateGlobal()">
+            <span style="font-size:11px;color:#888780">€</span>
+          </div>
+          <button class="btn" style="font-size:11px" onclick="applyTransportToAll()">Aplicar transporte a todos os dias</button>
+        </div>
+      </div>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="two-col">
+        <div class="section-card" id="dash-coverage"></div>
+        <div class="section-card" id="dash-phases"></div>
+      </div>
+      <div class="section-card" id="dash-hotel"></div>
+      <div class="section-card" id="dash-flights"></div>
+    </div>
+  </div>
+
+  <!-- JOGOS -->
+  <div id="view-jogos" class="view">
+    <div id="jogos-content" style="max-width:960px;margin:0 auto"></div>
+  </div>
+
+  <!-- ALOJAMENTO -->
+  <div id="view-alojamento" class="view">
+    <div class="metrics">
+      <div class="metric"><div class="lbl">Dias completos</div><div class="val" style="color:#1D9E75" id="cnt-ok">0</div><div class="sub">todos preenchidos</div></div>
+      <div class="metric"><div class="lbl">Dias incompletos</div><div class="val" style="color:#BA7517" id="cnt-warn">0</div><div class="sub">hotel em falta</div></div>
+      <div class="metric"><div class="lbl">Por preencher</div><div class="val" style="color:#E24B4A" id="cnt-err">0</div><div class="sub">cidade, voo ou hotel em falta</div></div>
+    </div>
+    <div class="layout">
+      <div>
+        <div class="panel-title">Dias da operação</div>
+        <div id="days-list"></div>
+      </div>
+      <div>
+        <div class="panel-title">Detalhe do dia</div>
+        <div id="day-detail"><div class="detail-placeholder">Seleciona um dia à esquerda para editar</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Export modal -->
+<div id="export-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:15px;font-weight:700">⬇ Exportar JSON</div>
+        <div style="font-size:12px;color:#888780;margin-top:2px">Copia e guarda num ficheiro <b>.json</b></div></div>
+      <button onclick="document.getElementById('export-modal').style.display='none'" style="border:none;background:none;font-size:22px;cursor:pointer;color:#888780">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="export-copy-btn" style="padding:7px 18px;background:#1a1a18;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">📋 Copiar tudo</button>
+      <span style="font-size:11px;color:#b4b2a9">Cola num editor de texto e guarda como <b id="export-filename"></b></span>
+    </div>
+    <textarea id="export-json" readonly style="flex:1;min-height:360px;font-family:monospace;font-size:10px;border:1px solid #e8e6df;border-radius:8px;padding:12px;resize:none;outline:none;color:#555;background:#f8f7f4"></textarea>
+  </div>
+</div>
+
+</div><!-- /main-app -->
+
+<script>
+const USERS={"livemode":"mundial2026"};
+function doLogin(){
+  const u=document.getElementById("login-user").value.trim();
+  const p=document.getElementById("login-pass").value;
+  if(USERS[u]&&USERS[u]===p){
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("main-app").style.display="block";
+  } else {
+    document.getElementById("login-error").style.display="block";
+  }
+}
+</script>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════
+const TEAM=[
+  {name:"Rodrigo Alves", dept:"coord",initials:"RA"},
+  {name:"MoveMind",      dept:"cast", initials:"MM"},
+  {name:"Quaresma",      dept:"cast", initials:"QU"},
+  {name:"Márcia Pacheco",dept:"cast", initials:"MP"},
+  {name:"Luana do Bem",  dept:"cast", initials:"LB"},
+  {name:"Tiago Almeida", dept:"cast", initials:"TA"},
+  {name:"André Germano", dept:"prod", initials:"AG"},
+  {name:"Ricardo Vaz",   dept:"prod", initials:"RV"},
+];
+
+const PHASES=[
+  {id:"pre",   label:"Pré-operação",    short:"Pré",    from:"2026-06-06",to:"2026-06-10",color:"#888780"},
+  {id:"groups",label:"Fase de Grupos",  short:"Grupos", from:"2026-06-11",to:"2026-06-27",color:"#185FA5"},
+  {id:"r32",   label:"32 Avos",         short:"32Avos", from:"2026-06-28",to:"2026-07-04",color:"#1D9E75"},
+  {id:"r16",   label:"16 Avos",         short:"16Avos", from:"2026-07-05",to:"2026-07-08",color:"#BA7517"},
+  {id:"qf",    label:"Quartos de Final",short:"Quartos",from:"2026-07-09",to:"2026-07-11",color:"#993556"},
+  {id:"sf",    label:"Meias-Finais",    short:"Meias",  from:"2026-07-12",to:"2026-07-15",color:"#534AB7"},
+  {id:"final", label:"Final",           short:"Final",  from:"2026-07-16",to:"2026-07-22",color:"#1a1a18"},
+];
+function getPhase(d){return PHASES.find(p=>d>=p.from&&d<=p.to)||null;}
+
+const GAMES_FIXED={
+  "2026-06-14":{label:"GER vs CUW",city:"Houston",  stadium:"NRG Stadium",           kickoff_utc:"22:00",kickoff_local:"17:00"},
+  "2026-06-15":{label:"KSA vs URU",city:"Miami",    stadium:"Hard Rock Stadium",      kickoff_utc:"23:00",kickoff_local:"19:00"},
+  "2026-06-17":{label:"POR vs P1", city:"Houston",  stadium:"NRG Stadium",           kickoff_utc:"22:00",kickoff_local:"17:00",port:true},
+  "2026-06-21":{label:"URU vs CPV",city:"Miami",    stadium:"Hard Rock Stadium",      kickoff_utc:"23:00",kickoff_local:"19:00"},
+  "2026-06-22":{label:"ARG vs AUT",city:"Dallas",   stadium:"AT&T Stadium",           kickoff_utc:"22:00",kickoff_local:"17:00"},
+  "2026-06-23":{label:"POR vs UZB",city:"Houston",  stadium:"NRG Stadium",           kickoff_utc:"22:00",kickoff_local:"17:00",port:true},
+  "2026-06-24":{label:"SCO vs BRA",city:"Miami",    stadium:"Hard Rock Stadium",      kickoff_utc:"02:00",kickoff_local:"22:00"},
+  "2026-06-27":{label:"COL vs POR",city:"Miami",    stadium:"Hard Rock Stadium",      kickoff_utc:"22:00",kickoff_local:"18:00",port:true},
+};
+
+// Posições de pitch — preços variam por fase
+// price: valor base (groups). priceKnockout: r32/r16/qf/sf. priceFinal: final.
+const PITCH_POSITIONS=[
+  {id:"team_arrival",       name:"Team Arrival Filming Position, Non-Equipped",          price:0},
+  {id:"player_arrival",     name:"Player Arrival Multilateral Interview Position",        price:0},
+  {id:"coach_prewarm",      name:"Coach Pre-Warmup Multilateral Interview Position",      price:0},
+  {id:"touchline_partial",  name:"Touchline, Partially Equipped",                         price:3500, priceKnockout:4100},
+  {id:"halftime_flash",     name:"Half-Time Multilateral Flash Interview Position",       price:0},
+  {id:"digital_reporter",   name:"Digital Reporter Position",                             price:100},
+  {id:"reporter_bg1",       name:"Reporter Position - Behind Goal",                       price:450},
+  {id:"camera_eng",         name:"Camera Position ENG",                                   price:100},
+  {id:"touchline_internet", name:"Touchline Internet Access",                             price:790},
+  {id:"tv_pitch_internet",  name:"TV Pitch Reporter Behind Goal Internet Access",         price:490},
+  {id:"uni_flash_20mbps",   name:"Uni Flash Internet Access 20 Mbps",                    price:790},
+  {id:"observer_seat",      name:"Observer Seat",                                         price:50,   priceKnockout:75, priceFinal:100},
+  {id:"fulltime_flash",     name:"Full-Time Multilateral Flash Interview Position",       price:0},
+  {id:"postmatch_flash",    name:"Post-Match Unilateral Flash Interview TV Position, Partially Equipped", price:1100, priceKnockout:1400},
+  {id:"tv_press_conf",      name:"TV Camera Press Conference Access (ENG)",               price:0},
+  {id:"press_conf_jour",    name:"Press Conference Access (Journalist)",                  price:0},
+  {id:"mixed_zone_special", name:"Mixed Zone Special Access",                             price:0},
+  {id:"mixed_zone",         name:"Mixed Zone Access",                                     price:0},
+  {id:"team_departure",     name:"Team Departure Filming Position, Non-Equipped",         price:0},
+  {id:"parking",            name:"Parking Space (TBD)",                                   price:0},
+];
+
+function pitchPrice(posId, phaseId){
+  const pos=PITCH_POSITIONS.find(p=>p.id===posId);
+  if(!pos)return 0;
+  if(phaseId==="final"   && pos.priceFinal    != null) return pos.priceFinal;
+  if(["r32","r16","qf","sf","final"].includes(phaseId) && pos.priceKnockout != null) return pos.priceKnockout;
+  return pos.price;
+}
+
+const DAYS=[];
+for(let d=new Date('2026-06-06T12:00');d<=new Date('2026-07-22T12:00');d.setDate(d.getDate()+1))
+  DAYS.push(d.toISOString().slice(0,10));
+
+const CITIES=["Lisboa","Miami","Houston","Dallas","Nova Iorque","Los Angeles","Kansas City","Seattle","Atlanta","San Francisco","Boston","Guadalajara","Monterrey","Cidade do México"];
+const CBG={Miami:"#F4C0D1",Houston:"#B5D4F4",Dallas:"#9FE1CB",Lisboa:"#EEEDFE"};
+const CTX={Miami:"#72243E",Houston:"#0C447C",Dallas:"#085041",Lisboa:"#3C3489"};
+const CC ={Miami:"#993556",Houston:"#185FA5",Dallas:"#1D9E75",Lisboa:"#534AB7"};
+const CSHORT={"Nova Iorque":"NY","Los Angeles":"LA","Kansas City":"KC","San Francisco":"SF","Cidade do México":"MEX","Guadalajara":"GDL","Monterrey":"MTY"};
+function cityBg(c){return CBG[c]||"#f1efe8"}
+function cityTxt(c){return CTX[c]||"#5f5e5a"}
+function cityBdr(c){return CC[c]||"#b4b2a9"}
+function cityShort(c){return CSHORT[c]||c}
+function cityColor(c){return CC[c]||"#b4b2a9"}
+
+const DAV={coord:["#EEEDFE","#3C3489"],cast:["#E1F5EE","#085041"],prod:["#FAEEDA","#633806"]};
+const DLB={coord:"Coordenação",cast:"Casting",prod:"Prod / Câmeras"};
+const LOCKED=["2026-06-17","2026-06-23","2026-06-27"];
+const MEARLY=["Rodrigo Alves","Márcia Pacheco","André Germano"];
+const HOUSTON_EARLY=["Luana do Bem","Tiago Almeida","Ricardo Vaz"];
+const DALLAS22=["Rodrigo Alves","Márcia Pacheco","André Germano"];
+
+let PER_DIEM=100, TRANSPORT_DEFAULT=100;
+
+// ═══════════════════════════════════════════════
+// DAYINFO
+// ═══════════════════════════════════════════════
+const DAYINFO={};
+DAYS.forEach(d=>{
+  const f=GAMES_FIXED[d];
+  DAYINFO[d]={
+    covering:!!f,
+    game_label:   f?f.label:"",
+    game_city:    f?f.city:"",
+    game_port:    f?!!f.port:false,
+    stadium:      f?f.stadium:"",
+    kickoff_utc:  f?f.kickoff_utc:"",
+    kickoff_local:f?f.kickoff_local:"",
+    transport:    TRANSPORT_DEFAULT,
+    pitch_positions: [],  // array de ids seleccionados
+  };
+});
+
+// ═══════════════════════════════════════════════
+// ESTADO ALOJAMENTO
+// ═══════════════════════════════════════════════
+function mk(mode,city){return{mode,city,hotel_night:"",hotel_cost:0,from:null,to:null,flight:"",flight_cost:0,city_wake:null,hotel_wake:"",hotel_cost_wake:0,city_sleep:null,hotel_sleep:"",hotel_cost_sleep:0};}
+function mkSplit(w,s){return{mode:"split",city:null,hotel_night:"",hotel_cost:0,from:null,to:null,flight:"",flight_cost:0,city_wake:w,hotel_wake:"",hotel_cost_wake:0,city_sleep:s,hotel_sleep:"",hotel_cost_sleep:0};}
+function defState(name,date){
+  if(date==="2026-06-17"||date==="2026-06-23") return mk("city","Houston");
+  if(date==="2026-06-27") return mk("city","Miami");
+  if(date<="2026-06-06") return mk("city","Lisboa");
+  if(date==="2026-06-07") return MEARLY.includes(name)?mkSplit("Lisboa","Miami"):mk("city","Lisboa");
+  if(date>="2026-06-08"&&date<="2026-06-10") return mk("city",MEARLY.includes(name)?"Miami":"Lisboa");
+  if(date>="2026-06-11"&&date<="2026-06-12") return mk("city","Miami");
+  if(date==="2026-06-13") return HOUSTON_EARLY.includes(name)?mkSplit("Lisboa","Houston"):mk("city","Miami");
+  if(date==="2026-06-14"||date==="2026-06-15") return mk("city",HOUSTON_EARLY.includes(name)?"Houston":"Miami");
+  if(date==="2026-06-16") return HOUSTON_EARLY.includes(name)?mk("city","Houston"):mkSplit("Miami","Houston");
+  if(date>="2026-06-18"&&date<="2026-06-21") return mk("city","Miami");
+  if(date==="2026-06-22") return mk("city",DALLAS22.includes(name)?"Dallas":"Houston");
+  if(date>="2026-06-24"&&date<="2026-06-27") return mk("city","Miami");
+  return mk(null,null);
+}
+const S={};
+TEAM.forEach(t=>{S[t.name]={};DAYS.forEach(d=>{S[t.name][d]=defState(t.name,d);});});
+
+let selDay=null, activeTab="dashboard";
+
+// ═══════════════════════════════════════════════
+// STATUS
+// ═══════════════════════════════════════════════
+function pStDetail(name,date){
+  const s=S[name][date],miss=[];
+  if(!s.mode){miss.push("cidade");return{status:"empty",missing:miss};}
+  if(s.mode==="transit"){
+    if(!s.from)miss.push("origem");if(!s.to)miss.push("destino");if(!s.flight)miss.push("voo");
+    return{status:miss.length?"empty":"complete",missing:miss};
+  }
+  if(s.mode==="split"){
+    if(!s.city_wake)miss.push("cidade onde acordou");if(!s.city_sleep)miss.push("cidade onde dorme");if(!s.flight)miss.push("voo");
+    if(s.city_wake&&s.city_wake!=="Lisboa"&&!s.hotel_wake)miss.push("hotel manhã");
+    if(s.city_sleep&&s.city_sleep!=="Lisboa"&&!s.hotel_sleep)miss.push("hotel noite");
+    if(miss.length)return{status:miss.some(m=>m.includes("cidade")||m.includes("voo"))?"empty":"partial",missing:miss};
+    return{status:"complete",missing:miss};
+  }
+  if(s.mode==="city"){
+    if(!s.city){miss.push("cidade");return{status:"empty",missing:miss};}
+    if(s.city==="Lisboa")return{status:"complete",missing:miss};
+    if(!s.hotel_night)miss.push("hotel");
+    return{status:miss.length?"partial":"complete",missing:miss};
+  }
+  return{status:"empty",missing:["cidade"]};
+}
+function pSt(n,d){return pStDetail(n,d).status;}
+function dSt(d){const a=TEAM.map(t=>pSt(t.name,d));if(a.includes("empty"))return"empty";if(a.includes("partial"))return"partial";return"complete";}
+function hasSplit(d){return TEAM.some(t=>S[t.name][d].mode==="split");}
+
+// ═══════════════════════════════════════════════
+// FINANCEIRO
+// ═══════════════════════════════════════════════
+function fmt(n){return"€"+Math.round(n).toLocaleString("pt-PT");}
+function hotelCost(name,date){
+  const s=S[name][date];
+  if(!s.mode)return 0;
+  if(s.mode==="city"&&s.city&&s.city!=="Lisboa")return Number(s.hotel_cost)||0;
+  if(s.mode==="split")return(Number(s.hotel_cost_wake)||0)+(Number(s.hotel_cost_sleep)||0);
+  if(LOCKED.includes(date))return Number(s.hotel_cost)||0;
+  return 0;
+}
+function flightCost(name,date){
+  const s=S[name][date];
+  return(s.mode==="transit"||s.mode==="split")?Number(s.flight_cost)||0:0;
+}
+function nightsCount(name,date){
+  const s=S[name][date];
+  if(s.mode==="city"&&s.city&&s.city!=="Lisboa")return 1;
+  if(s.mode==="split"){let n=0;if(s.city_wake&&s.city_wake!=="Lisboa")n++;if(s.city_sleep&&s.city_sleep!=="Lisboa")n++;return n;}
+  if(LOCKED.includes(date))return 1;
+  return 0;
+}
+function sleepCity(name,date){
+  const s=S[name][date];
+  if(s.mode==="city"&&s.city&&s.city!=="Lisboa")return s.city;
+  if(s.mode==="split"&&s.city_sleep&&s.city_sleep!=="Lisboa")return s.city_sleep;
+  if(LOCKED.includes(date))return"Houston";
+  return null;
+}
+function pitchCostForDay(date){
+  const pp=DAYINFO[date].pitch_positions||[];
+  const ph=getPhase(date);
+  return pp.reduce((acc,id)=>acc+pitchPrice(id, ph?ph.id:"groups"),0);
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",["dashboard","jogos","alojamento"][i]===tab));
+  document.querySelectorAll(".view").forEach(el=>el.classList.remove("active"));
+  document.getElementById("view-"+tab).classList.add("active");
+  if(tab==="dashboard")renderDashboard();
+  if(tab==="jogos")renderJogos();
+}
+
+// ═══════════════════════════════════════════════
+// GLOBALS
+// ═══════════════════════════════════════════════
+function updateGlobal(){
+  PER_DIEM=Number(document.getElementById("input-perdiem").value)||0;
+  TRANSPORT_DEFAULT=Number(document.getElementById("input-transport").value)||0;
+  renderList();if(activeTab==="dashboard")renderDashboard();
+}
+function applyTransportToAll(){
+  const val=Number(document.getElementById("input-transport").value)||0;
+  DAYS.forEach(d=>{DAYINFO[d].transport=val;});
+  renderList();if(selDay)renderDetail(selDay);if(activeTab==="dashboard")renderDashboard();
+}
+
+// ═══════════════════════════════════════════════
+// LISTA DIAS
+// ═══════════════════════════════════════════════
+function renderList(){
+  let ok=0,warn=0,err=0,h="",lastPhase=null;
+  DAYS.forEach(d=>{
+    const ph=getPhase(d);
+    if(ph&&ph.id!==lastPhase){lastPhase=ph.id;h+=`<div class="phase-label">${ph.label}</div>`;}
+    const info=DAYINFO[d],st=dSt(d);
+    if(st==="complete")ok++;else if(st==="partial")warn++;else err++;
+    const dt=new Date(d+"T12:00"),dow=dt.toLocaleDateString("pt-PT",{weekday:"short"}),dfmt=dt.toLocaleDateString("pt-PT",{day:"numeric",month:"short"});
+    const isPre=d<="2026-06-10",dotClr=st==="complete"?"#1D9E75":st==="partial"?"#BA7517":"#E24B4A";
+    const uniq=[...new Set(TEAM.map(t=>{const s=S[t.name][d];if(!s.mode)return null;if(s.mode==="transit")return(s.from&&s.to)?s.from+"→"+s.to:"trânsito?";if(s.mode==="split")return(s.city_wake&&s.city_sleep)?s.city_wake+"→"+s.city_sleep:"viagem?";return s.city;}).filter(Boolean))];
+    const pills=uniq.map(c=>{
+      if(c.includes("→")){const[a,b]=c.split("→");return`<span class="pill" style="background:#f1efe8;color:#5f5e5a;border:1px dashed #b4b2a9">${cityShort(a)}→${cityShort(b)}</span>`;}
+      return`<span class="pill" style="background:${cityBg(c)};color:${cityTxt(c)}">${cityShort(c)}</span>`;
+    }).join(" ");
+    let gameBadge="";
+    if(info.covering&&info.game_label){const ip=info.game_port;gameBadge=`<span class="pill" style="background:${ip?"#E6F1FB":"#FAEEDA"};color:${ip?"#042C53":"#633806"};border:1px solid ${ip?"#B5D4F4":"#FAC775"}">${info.game_label}</span>`;}
+    else if(info.covering)gameBadge=`<span class="pill" style="background:#f1efe8;color:#888780;border:1px dashed #b4b2a9">jogo a definir</span>`;
+    const dayCost=TEAM.reduce((a,t)=>a+hotelCost(t.name,d)+flightCost(t.name,d),0)+(Number(info.transport)||0)+pitchCostForDay(d);
+    h+=`<div class="day-card ${st}${selDay===d?" selected":""}${!info.covering&&ph?.id!=="pre"?" nocover":""}" onclick="pick('${d}')">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="sdot" style="background:${dotClr}"></span>
+        <span style="font-size:13px;font-weight:500;min-width:80px">${dow}, ${dfmt}</span>
+        <span style="display:flex;gap:4px;flex:1;flex-wrap:wrap">${pills}</span>
+        ${hasSplit(d)?`<span style="font-size:10px;color:#BA7517">✈</span>`:""}
+        ${gameBadge}
+        ${isPre?`<span style="font-size:10px;color:#b4b2a9">pré</span>`:""}
+        ${dayCost>0?`<span style="font-size:10px;color:#1D9E75;font-weight:600;margin-left:auto">${fmt(dayCost)}</span>`:""}
+      </div>
+    </div>`;
+  });
+  document.getElementById("days-list").innerHTML=h;
+  document.getElementById("cnt-ok").textContent=ok;
+  document.getElementById("cnt-warn").textContent=warn;
+  document.getElementById("cnt-err").textContent=err;
+  const total=DAYS.reduce((a,d)=>a+TEAM.reduce((b,t)=>b+hotelCost(t.name,d)+flightCost(t.name,d),0)+(Number(DAYINFO[d].transport)||0)+pitchCostForDay(d),0);
+  document.getElementById("header-status").textContent=`${ok}/${DAYS.length} dias · ${fmt(total)} total`;
+}
+
+// ═══════════════════════════════════════════════
+// DETALHE DIA
+// ═══════════════════════════════════════════════
+function pick(date){selDay=date;renderList();renderDetail(date);}
+function costInput(name,date,field,val,icon){
+  return`<div style="display:flex;align-items:center;gap:5px"><span style="font-size:11px">${icon}</span>
+    <input type="number" min="0" step="1" value="${val||""}" placeholder="€0" style="width:80px"
+      onchange="setField('${name}','${date}','${field}',this.value)"
+      onblur="setField('${name}','${date}','${field}',this.value)"></div>`;
+}
+
+function renderDetail(date){
+  const dt=new Date(date+"T12:00"),dfmt=dt.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const info=DAYINFO[date],ph=getPhase(date);
+  const anyTrans=TEAM.some(t=>S[t.name][date].mode==="split"||S[t.name][date].mode==="transit");
+  let h=`<div class="detail-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div><h4 style="text-transform:capitalize">${dfmt}</h4>${ph?`<span style="font-size:11px;color:#888780">${ph.label}</span>`:""}</div>
+    </div>`;
+  // jogo
+  h+=`<div class="game-box"><div class="gb-title">🎙️ Jogo a cobrir</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${info.covering?"10px":"0"}">
+      <span style="font-size:12px;color:#888780">Cobrimos?</span>
+      <button class="btn${info.covering?" active":""}" onclick="setCovering('${date}',true)">✓ Sim</button>
+      <button class="btn${!info.covering?" active":""}" onclick="setCovering('${date}',false)">✗ Não</button>
+    </div>`;
+  if(info.covering){
+    h+=`<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#888780;font-weight:600;text-transform:uppercase">Jogo</span>
+        <input type="text" value="${info.game_label||""}" placeholder="ex: POR vs ARG" style="width:140px" onchange="setDayInfo('${date}','game_label',this.value)" onblur="setDayInfo('${date}','game_label',this.value)"></div>
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#888780;font-weight:600;text-transform:uppercase">Cidade</span>
+        <select onchange="setDayInfo('${date}','game_city',this.value)" style="width:120px"><option value="">—</option>${CITIES.map(c=>`<option value="${c}" ${info.game_city===c?"selected":""}>${c}</option>`).join("")}</select></div>
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#888780;font-weight:600;text-transform:uppercase">🇵🇹?</span>
+        <div style="display:flex;gap:5px;padding-top:3px">
+          <button class="btn${info.game_port?" active":""}" style="font-size:11px;padding:4px 10px" onclick="setDayInfo('${date}','game_port',true)">Sim</button>
+          <button class="btn${!info.game_port?" active":""}" style="font-size:11px;padding:4px 10px" onclick="setDayInfo('${date}','game_port',false)">Não</button>
+        </div></div>
+    </div>`;
+  }
+  h+=`</div>`;
+  // transporte
+  h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;background:#f8f7f4;border:1px solid #e8e6df;border-radius:10px">
+    <span>🚐</span><span style="font-size:12px;font-weight:600;flex:1">Transporte terrestre</span>
+    <span style="font-size:11px;color:#888780;margin-right:6px">€</span>
+    <input type="number" min="0" step="10" value="${info.transport??TRANSPORT_DEFAULT}" style="width:90px;padding:5px 8px;border:1px solid #d3d1c7;border-radius:7px;font-size:12px;outline:none"
+      onchange="setDayInfo('${date}','transport',+this.value)" onblur="setDayInfo('${date}','transport',+this.value)">
+  </div>`;
+  if(anyTrans)h+=`<div class="alert-box">⚠️ Dia com mudança de cidade — preenche o voo e os dois hotéis.</div>`;
+  h+=`<div class="quick-btns"><span style="font-size:12px;color:#888780;margin-right:4px">Todos para:</span>
+    ${["Lisboa","Miami","Houston","Dallas"].map(c=>`<button class="btn" style="background:${cityBg(c)};color:${cityTxt(c)};border-color:${cityBdr(c)}66" onclick="fillAll('${date}','${c}')">${c}</button>`).join("")}
+    <button class="btn" onclick="fillAllT('${date}')">Trânsito</button>
+    <button class="btn" onclick="fillAllSplit('${date}')">Viagem (2 cidades)</button>
+  </div>
+  <table><thead><tr>
+    <th style="min-width:140px">Membro</th><th>Estado</th><th>Alojamento / Voo</th><th style="min-width:100px">Custo €</th><th style="text-align:center;width:32px">OK</th>
+  </tr></thead><tbody>`;
+
+  ["coord","cast","prod"].forEach(dept=>{
+    h+=`<tr class="dept-row"><td colspan="5">${DLB[dept]}</td></tr>`;
+    TEAM.filter(t=>t.dept===dept).forEach(person=>{
+      const s=S[person.name][date],locked=LOCKED.includes(date);
+      const{status,missing}=pStDetail(person.name,date);
+      const[avBg,avTxt]=DAV[dept];
+      let okIcon,okClass;
+      if(status==="complete"){okIcon="✓";okClass="ok-ok";}
+      else if(status==="partial"){okIcon="!";okClass="ok-warn";}
+      else{okIcon="✗";okClass="ok-err";}
+      const tip=missing.length?`title="Em falta: ${missing.join(', ')}"`:"";;
+      let stateCol=locked
+        ?`<span class="pill" style="background:#B5D4F4;color:#0C447C">Houston (bloqueado)</span>`
+        :`<select class="${!s.mode?"miss":""}" onchange="setMode('${person.name}','${date}',this.value)">
+          <option value="">— escolher —</option>
+          ${CITIES.map(c=>`<option value="city:${c}" ${s.mode==="city"&&s.city===c?"selected":""}>${c}</option>`).join("")}
+          <option value="transit" ${s.mode==="transit"?"selected":""}>Trânsito (só voo)</option>
+          <option value="split"   ${s.mode==="split"?"selected":""}>Viagem (2 cidades)</option>
+        </select>`;
+      let detCol="",costCol="";
+      if(locked){
+        detCol=`<div class="hotel-block"><div class="hotel-label">Hotel</div>
+          <input type="text" value="${s.hotel_night||""}" placeholder="Nome do hotel..." ${!s.hotel_night?'class="miss"':""} style="width:180px"
+            onchange="setField('${person.name}','${date}','hotel_night',this.value)" onblur="setField('${person.name}','${date}','hotel_night',this.value)"></div>`;
+        costCol=costInput(person.name,date,"hotel_cost",s.hotel_cost,"🏨");
+      } else if(s.mode==="transit"){
+        const fO=CITIES.map(c=>`<option value="${c}" ${s.from===c?"selected":""}>${c}</option>`).join("");
+        const tO=CITIES.map(c=>`<option value="${c}" ${s.to===c?"selected":""}>${c}</option>`).join("");
+        detCol=`<div class="trow">
+          <select class="${!s.from?"miss":""}" onchange="setField('${person.name}','${date}','from',this.value)" style="width:95px"><option value="">origem...</option>${fO}</select>
+          <span style="color:#888">→</span>
+          <select class="${!s.to?"miss":""}" onchange="setField('${person.name}','${date}','to',this.value)" style="width:95px"><option value="">destino...</option>${tO}</select>
+          <input type="text" value="${s.flight||""}" placeholder="Voo" ${!s.flight?'class="miss"':""} style="width:90px"
+            onchange="setField('${person.name}','${date}','flight',this.value)" onblur="setField('${person.name}','${date}','flight',this.value)">
+        </div>`;
+        costCol=costInput(person.name,date,"flight_cost",s.flight_cost,"✈️");
+      } else if(s.mode==="split"){
+        const wO=CITIES.map(c=>`<option value="${c}" ${s.city_wake===c?"selected":""}>${c}</option>`).join("");
+        const sO=CITIES.map(c=>`<option value="${c}" ${s.city_sleep===c?"selected":""}>${c}</option>`).join("");
+        const nW=s.city_wake&&s.city_wake!=="Lisboa",nS=s.city_sleep&&s.city_sleep!=="Lisboa";
+        detCol=`<div class="hotel-block">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+            <select class="${!s.city_wake?"miss":""}" onchange="setField('${person.name}','${date}','city_wake',this.value)" style="width:95px"><option value="">acorda...</option>${wO}</select>
+            <span>→</span>
+            <select class="${!s.city_sleep?"miss":""}" onchange="setField('${person.name}','${date}','city_sleep',this.value)" style="width:95px"><option value="">dorme...</option>${sO}</select>
+            <input type="text" value="${s.flight||""}" placeholder="Voo" ${!s.flight?'class="miss"':""} style="width:85px"
+              onchange="setField('${person.name}','${date}','flight',this.value)" onblur="setField('${person.name}','${date}','flight',this.value)">
+          </div>
+          ${nW?`<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#888780;min-width:65px">🌅 Manhã</span>
+            <input type="text" value="${s.hotel_wake||""}" placeholder="Hotel manhã..." ${!s.hotel_wake?'class="miss"':""} style="width:155px"
+              onchange="setField('${person.name}','${date}','hotel_wake',this.value)" onblur="setField('${person.name}','${date}','hotel_wake',this.value)"></div>`:""}
+          ${nS?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span style="font-size:10px;color:#888780;min-width:65px">🌙 Noite</span>
+            <input type="text" value="${s.hotel_sleep||""}" placeholder="Hotel noite..." ${!s.hotel_sleep?'class="miss"':""} style="width:155px"
+              onchange="setField('${person.name}','${date}','hotel_sleep',this.value)" onblur="setField('${person.name}','${date}','hotel_sleep',this.value)"></div>`:""}
+        </div>`;
+        costCol=`<div style="display:flex;flex-direction:column;gap:4px">
+          ${nW?costInput(person.name,date,"hotel_cost_wake",s.hotel_cost_wake,"🌅"):""}
+          ${nS?costInput(person.name,date,"hotel_cost_sleep",s.hotel_cost_sleep,"🌙"):""}
+          ${costInput(person.name,date,"flight_cost",s.flight_cost,"✈️")}
+        </div>`;
+      } else if(s.mode==="city"&&s.city==="Lisboa"){
+        detCol=`<span style="font-size:12px;color:#888780">sem hotel necessário</span>`;
+        costCol=`<span style="font-size:11px;color:#b4b2a9">—</span>`;
+      } else if(s.mode==="city"&&s.city){
+        detCol=`<div class="hotel-block"><div class="hotel-label">Hotel</div>
+          <input type="text" value="${s.hotel_night||""}" placeholder="Nome do hotel..." ${!s.hotel_night?'class="miss"':""} style="width:180px"
+            onchange="setField('${person.name}','${date}','hotel_night',this.value)" onblur="setField('${person.name}','${date}','hotel_night',this.value)"></div>`;
+        costCol=costInput(person.name,date,"hotel_cost",s.hotel_cost,"🏨");
+      } else {
+        detCol=`<span style="font-size:12px;color:#b4b2a9">—</span>`;
+        costCol=`<span style="font-size:11px;color:#b4b2a9">—</span>`;
+      }
+      const rowTotal=hotelCost(person.name,date)+flightCost(person.name,date);
+      h+=`<tr>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar" style="background:${avBg};color:${avTxt}">${person.initials}</div>
+          <span style="font-size:13px;font-weight:500">${person.name}</span>
+        </div></td>
+        <td>${stateCol}</td><td>${detCol}</td>
+        <td><div style="display:flex;flex-direction:column;gap:3px">${costCol}${rowTotal>0?`<span class="cost-badge">${fmt(rowTotal)}</span>`:""}</div></td>
+        <td style="text-align:center"><span class="${okClass}" ${tip}>${okIcon}</span></td>
+      </tr>`;
+    });
+  });
+  const dayTotal=TEAM.reduce((a,t)=>a+hotelCost(t.name,date)+flightCost(t.name,date),0)+(Number(info.transport)||0)+pitchCostForDay(date);
+  h+=`</tbody></table>`;
+  if(dayTotal>0)h+=`<div style="text-align:right;padding-top:12px;font-size:13px;font-weight:600;border-top:1px solid #f1efe8;margin-top:8px">Total do dia: ${fmt(dayTotal)}</div>`;
+  h+=`</div>`;
+  document.getElementById("day-detail").innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════
+// SETTERS
+// ═══════════════════════════════════════════════
+function setField(name,date,field,val){
+  const nums=["hotel_cost","flight_cost","hotel_cost_wake","hotel_cost_sleep"];
+  S[name][date][field]=nums.includes(field)?Number(val)||0:(val||null);
+  renderList();
+  if(activeTab==="dashboard")renderDashboard();
+}
+function setMode(name,date,val){
+  Object.assign(S[name][date],mk(null,null));
+  if(val==="transit")S[name][date].mode="transit";
+  else if(val==="split")S[name][date].mode="split";
+  else if(val.startsWith("city:")){S[name][date].mode="city";S[name][date].city=val.slice(5);}
+  else S[name][date].mode=null;
+  renderList();renderDetail(date);
+}
+function setDayInfo(date,field,val){
+  if(field==="game_port")DAYINFO[date].game_port=(val===true||val==="true");
+  else if(field==="transport")DAYINFO[date].transport=Number(val)||0;
+  else DAYINFO[date][field]=val;
+  renderList();
+  if(activeTab==="dashboard")renderDashboard();
+  if(activeTab==="jogos")renderJogos();
+}
+function setCovering(date,val){
+  DAYINFO[date].covering=val;
+  renderList();renderDetail(date);
+  if(activeTab==="dashboard")renderDashboard();
+}
+function togglePitchPosition(date,id){
+  const pp=DAYINFO[date].pitch_positions||[];
+  const idx=pp.indexOf(id);
+  if(idx>=0)pp.splice(idx,1);else pp.push(id);
+  DAYINFO[date].pitch_positions=pp;
+  renderList();
+  if(activeTab==="dashboard")renderDashboard();
+  if(activeTab==="jogos")renderJogos();
+}
+function fillAll(date,city){TEAM.forEach(t=>Object.assign(S[t.name][date],mk("city",city)));renderList();if(selDay===date)renderDetail(date);}
+function fillAllT(date){TEAM.forEach(t=>Object.assign(S[t.name][date],mk("transit",null)));renderList();if(selDay===date)renderDetail(date);}
+function fillAllSplit(date){TEAM.forEach(t=>Object.assign(S[t.name][date],mkSplit(null,null)));renderList();if(selDay===date)renderDetail(date);}
+
+// ═══════════════════════════════════════════════
+// JOGOS
+// ═══════════════════════════════════════════════
+function renderJogos(){
+  const covered=DAYS.filter(d=>DAYINFO[d].covering);
+  const el=document.getElementById("jogos-content");
+  if(!covered.length){
+    el.innerHTML=`<div style="padding:40px;text-align:center;color:#b4b2a9;font-size:14px">Nenhum dia marcado como cobertura ainda.<br><span style="font-size:12px">No separador Alojamento, seleciona um dia e marca "Cobrimos? ✓ Sim".</span></div>`;
+    return;
+  }
+  let lastPhase=null,h="";
+  covered.forEach(d=>{
+    const info=DAYINFO[d],ph=getPhase(d);
+    if(ph&&ph.id!==lastPhase){lastPhase=ph.id;h+=`<div class="phase-label">${ph.label}</div>`;}
+    const dt=new Date(d+"T12:00");
+    const dfmt=dt.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"});
+    const pp=info.pitch_positions||[];
+    const pitchTotal=pitchCostForDay(d);
+    h+=`<div class="jogo-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;color:#888780;text-transform:capitalize;margin-bottom:3px">${dfmt}</div>
+          <div style="font-size:16px;font-weight:700">${info.game_label||`<span style="color:#b4b2a9;font-weight:400;font-size:14px">Jogo a definir</span>`}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${info.game_port?`<span class="pill" style="background:#E6F1FB;color:#042C53;border:1px solid #B5D4F4;font-size:11px;padding:3px 10px">🇵🇹 Portugal</span>`:""}
+          ${pitchTotal>0?`<span class="pill" style="background:#E1F5EE;color:#085041;font-size:11px;padding:3px 10px;font-weight:600">🎯 Pitch: ${fmt(pitchTotal)}</span>`:""}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+        <div class="jogo-field"><label>Jogo</label>
+          <input type="text" value="${info.game_label||""}" placeholder="ex: POR vs ARG"
+            onchange="setDayInfo('${d}','game_label',this.value)" onblur="setDayInfo('${d}','game_label',this.value)"></div>
+        <div class="jogo-field"><label>Cidade</label>
+          <select onchange="setDayInfo('${d}','game_city',this.value)">
+            <option value="">— cidade —</option>
+            ${CITIES.map(c=>`<option value="${c}" ${info.game_city===c?"selected":""}>${c}</option>`).join("")}
+          </select></div>
+        <div class="jogo-field"><label>Estádio</label>
+          <input type="text" value="${info.stadium||""}" placeholder="Nome do estádio"
+            onchange="setDayInfo('${d}','stadium',this.value)" onblur="setDayInfo('${d}','stadium',this.value)"></div>
+        <div class="jogo-field"><label>Hora local / Portugal</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" value="${info.kickoff_local||""}" placeholder="Local" style="width:50%" 
+              onchange="setDayInfo('${d}','kickoff_local',this.value)" onblur="setDayInfo('${d}','kickoff_local',this.value)">
+            <input type="text" value="${info.kickoff_utc||""}" placeholder="🇵🇹" style="width:50%"
+              onchange="setDayInfo('${d}','kickoff_utc',this.value)" onblur="setDayInfo('${d}','kickoff_utc',this.value)">
+          </div></div>
+      </div>
+
+      <div style="border-top:1px solid #f1efe8;padding-top:12px">
+        <div style="font-size:11px;font-weight:700;color:#888780;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🎯 Posições de Pitch — seleciona as que se aplicam</div>
+        <div class="pitch-grid">
+          ${PITCH_POSITIONS.map(pos=>{
+            const ph=getPhase(d);
+            const phId=ph?ph.id:"groups";
+            const price=pitchPrice(pos.id,phId);
+            const sel=pp.includes(pos.id);
+            const hasVariant=pos.priceKnockout!=null||pos.priceFinal!=null;
+            const priceLbl=price>0?"$"+price.toLocaleString():"gratuito";
+            const variantHint=hasVariant?`<span style="font-size:9px;opacity:.7;margin-left:3px">${phId==="groups"?"(Grupos)":phId==="final"?"(Final)":"(Knockout)"}</span>`:"";
+            return`<div class="pitch-item${sel?" selected":""}" onclick="togglePitchPosition('${d}','${pos.id}')">
+              <span class="pitch-item-name">${pos.name}</span>
+              <span class="pitch-item-price">${priceLbl}${variantHint}</span>
+            </div>`;
+          }).join("")}
+        </div>
+        ${pitchTotal>0?`<div style="text-align:right;margin-top:8px;font-size:13px;font-weight:700;color:#085041">Total pitch: ${fmt(pitchTotal)}</div>`:""}
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+function calcAll(){
+  let tH=0,tF=0,tT=0,tPitch=0,tNights=0,tFlights=0,tCover=0,tPort=0;
+  const bPhH={},bPhF={},bPhN={},bPhFl={},bPhPD={},bPhT={},bPhPitch={};
+  const bCH={},bCN={};
+  const bPH={},bPF={},bPN={},bPFl={},bPPD={};
+  PHASES.forEach(p=>{bPhH[p.id]=0;bPhF[p.id]=0;bPhN[p.id]=0;bPhFl[p.id]=0;bPhPD[p.id]=0;bPhT[p.id]=0;bPhPitch[p.id]=0;});
+  TEAM.forEach(t=>{bPH[t.name]=0;bPF[t.name]=0;bPN[t.name]=0;bPFl[t.name]=0;bPPD[t.name]=0;});
+  DAYS.forEach(d=>{
+    const ph=getPhase(d);
+    const tc=Number(DAYINFO[d].transport)||0;
+    const pc=pitchCostForDay(d);
+    tT+=tc;tPitch+=pc;
+    if(DAYINFO[d].covering){tCover++;if(DAYINFO[d].game_port)tPort++;}
+    if(ph){bPhT[ph.id]+=tc;bPhPitch[ph.id]+=pc;}
+    TEAM.forEach(t=>{
+      const hc=hotelCost(t.name,d),fc=flightCost(t.name,d),n=nightsCount(t.name,d),c=sleepCity(t.name,d);
+      const s=S[t.name][d],hasFl=(s.mode==="transit"||s.mode==="split")&&s.flight;
+      tH+=hc;tF+=fc;tNights+=n;
+      if(hasFl)tFlights++;
+      if(ph){bPhH[ph.id]+=hc;bPhF[ph.id]+=fc;bPhN[ph.id]+=n;bPhPD[ph.id]+=PER_DIEM;if(hasFl)bPhFl[ph.id]++;}
+      if(c){bCH[c]=(bCH[c]||0)+hc;bCN[c]=(bCN[c]||0)+n;}
+      bPH[t.name]+=hc;bPF[t.name]+=fc;bPN[t.name]+=n;bPPD[t.name]+=PER_DIEM;
+      if(hasFl)bPFl[t.name]++;
+    });
+  });
+  const tPD=DAYS.length*TEAM.length*PER_DIEM;
+  return{tH,tF,tPD,tT,tPitch,total:tH+tF+tPD+tT+tPitch,tNights,tFlights,tCover,tPort,
+    bPhH,bPhF,bPhN,bPhFl,bPhPD,bPhT,bPhPitch,bCH,bCN,bPH,bPF,bPN,bPFl,bPPD};
+}
+
+function bBar(val,max,color){const p=max>0?Math.round(val/max*100):0;return`<div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${color}"></div></div>`;}
+
+function renderDashboard(){
+  const C=calcAll();
+  // KPIs
+  const kpis=[
+    {icon:"💰",val:fmt(C.total),     lbl:"Investimento total",  sub:"Hotel+Voos+Perdiem+Transp+Pitch", color:"#1a1a18"},
+    {icon:"🎙️",val:C.tCover,         lbl:"Jogos cobertos",      sub:`${C.tPort} jogos de Portugal 🇵🇹`,  color:"#185FA5"},
+    {icon:"🏨",val:fmt(C.tH),        lbl:"Hotel",               sub:`${C.tNights} diárias`,              color:"#534AB7"},
+    {icon:"✈️",val:fmt(C.tF),        lbl:"Voos",                sub:`${C.tFlights} voos`,                color:"#993556"},
+    {icon:"🍽️",val:fmt(C.tPD),       lbl:"Per Diem",            sub:`${DAYS.length}d×${TEAM.length}p×€${PER_DIEM}`, color:"#BA7517"},
+    {icon:"🚐",val:fmt(C.tT),        lbl:"Transporte",          sub:"Editável por dia",                  color:"#1D9E75"},
+    {icon:"🎯",val:fmt(C.tPitch),    lbl:"Pitch Position",      sub:`${DAYS.filter(d=>pitchCostForDay(d)>0).length} jogos com posições`, color:"#E24B4A"},
+  ];
+  document.getElementById("kpi-row").innerHTML=kpis.map(k=>`<div class="kpi">
+    <div class="kpi-accent" style="background:${k.color}"></div>
+    <div class="kpi-icon">${k.icon}</div>
+    <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+    <div class="kpi-lbl">${k.lbl}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  </div>`).join("");
+
+  // Cidades
+  const cSorted=Object.entries(C.bCN).sort((a,b)=>b[1]-a[1]);
+  const maxCN=Math.max(...cSorted.map(e=>e[1]),1),maxCH=Math.max(...cSorted.map(e=>C.bCH[e[0]]||0),1);
+  let hCov=`<div class="section-title"><span>🗺️</span>Dias por Cidade</div><div class="mini-label">Noites · Investimento hotel</div><div class="bar-group">`;
+  cSorted.forEach(([c,n])=>{
+    hCov+=`<div>
+      <div class="bar-row" style="margin-bottom:2px">
+        <span class="bar-label"><span class="cdot" style="background:${cityColor(c)};margin-right:4px"></span>${c}</span>
+        ${bBar(n,maxCN,cityColor(c))}<span class="bar-val bold">${n}n</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="padding-left:14px"></span>
+        ${bBar(C.bCH[c]||0,maxCH,"#e0ded8")}<span class="bar-val">${fmt(C.bCH[c]||0)}</span>
+      </div></div>`;
+  });
+  if(!cSorted.length)hCov+=`<p style="font-size:12px;color:#b4b2a9">Sem dados ainda.</p>`;
+  hCov+=`</div>`;
+  document.getElementById("dash-coverage").innerHTML=hCov;
+
+  // Fases
+  const maxPh=Math.max(...PHASES.map(p=>(C.bPhH[p.id]||0)+(C.bPhF[p.id]||0)+(C.bPhPD[p.id]||0)+(C.bPhT[p.id]||0)+(C.bPhPitch[p.id]||0)),1);
+  let hPh=`<div class="section-title"><span>📅</span>Custo por Fase</div><div class="bar-group">`;
+  PHASES.forEach(p=>{
+    const tot=(C.bPhH[p.id]||0)+(C.bPhF[p.id]||0)+(C.bPhPD[p.id]||0)+(C.bPhT[p.id]||0)+(C.bPhPitch[p.id]||0);
+    hPh+=`<div>
+      <div class="bar-row" style="margin-bottom:2px">
+        <span class="bar-label"><span class="cdot" style="background:${p.color};margin-right:4px"></span>${p.short}</span>
+        ${bBar(tot,maxPh,p.color)}<span class="bar-val bold">${fmt(tot)}</span>
+      </div>
+      <div class="bar-row"><span class="bar-label" style="padding-left:14px"></span>
+        <span style="font-size:10px;color:#888780;flex:1">🏨${fmt(C.bPhH[p.id]||0)} ✈️${fmt(C.bPhF[p.id]||0)} 🍽️${fmt(C.bPhPD[p.id]||0)} 🚐${fmt(C.bPhT[p.id]||0)} 🎯${fmt(C.bPhPitch[p.id]||0)}</span>
+      </div></div>`;
+  });
+  hPh+=`</div>`;
+  document.getElementById("dash-phases").innerHTML=hPh;
+
+  // Hotel
+  const maxPH=Math.max(...TEAM.map(t=>C.bPH[t.name]),1),maxPN=Math.max(...TEAM.map(t=>C.bPN[t.name]),1);
+  const cHS=Object.entries(C.bCH).sort((a,b)=>b[1]-a[1]),maxCHS=Math.max(...cHS.map(e=>e[1]),1);
+  let hH=`<div class="section-title"><span>🏨</span>Hotel — Detalhe</div><div class="three-col">
+    <div><div class="mini-label">Resumo</div>
+      <div class="stat-row"><span>Total investido</span><strong style="color:#534AB7">${fmt(C.tH)}</strong></div>
+      <div class="stat-row"><span>Total diárias</span><strong>${C.tNights}</strong></div>
+      <div class="divider"></div><div class="mini-label">Por cidade</div><div class="bar-group">`;
+  cHS.forEach(([c,v])=>{
+    hH+=`<div class="bar-row"><span class="bar-label sm"><span class="cdot" style="background:${cityColor(c)};margin-right:4px"></span>${cityShort(c)}</span>
+      ${bBar(v,maxCHS,cityColor(c))}<span class="bar-val">${fmt(v)} · ${C.bCN[c]||0}n</span></div>`;
+  });
+  hH+=`</div></div>
+    <div><div class="mini-label">Custo por pessoa</div><div class="bar-group">`;
+  TEAM.forEach(t=>{const[a,b]=DAV[t.dept];hH+=`<div class="bar-row">
+    <span class="bar-label"><div style="display:inline-flex;align-items:center;gap:5px"><div class="avatar" style="background:${a};color:${b};width:18px;height:18px;font-size:8px">${t.initials}</div>${t.initials}</div></span>
+    ${bBar(C.bPH[t.name],maxPH,"#534AB7")}<span class="bar-val bold">${fmt(C.bPH[t.name])}</span></div>`;});
+  hH+=`</div></div>
+    <div><div class="mini-label">Diárias por pessoa</div><div class="bar-group">`;
+  TEAM.forEach(t=>{const[a,b]=DAV[t.dept];hH+=`<div class="bar-row">
+    <span class="bar-label"><div style="display:inline-flex;align-items:center;gap:5px"><div class="avatar" style="background:${a};color:${b};width:18px;height:18px;font-size:8px">${t.initials}</div>${t.initials}</div></span>
+    ${bBar(C.bPN[t.name],maxPN,"#B5D4F4")}<span class="bar-val bold">${C.bPN[t.name]}n</span></div>`;});
+  hH+=`</div></div></div>`;
+  document.getElementById("dash-hotel").innerHTML=hH;
+
+  // Voos
+  const maxPF=Math.max(...TEAM.map(t=>C.bPF[t.name]),1),maxPFl=Math.max(...TEAM.map(t=>C.bPFl[t.name]),1);
+  const maxPhF=Math.max(...PHASES.map(p=>C.bPhF[p.id]||0),1);
+  let hF=`<div class="section-title"><span>✈️</span>Voos — Detalhe</div><div class="three-col">
+    <div><div class="mini-label">Resumo</div>
+      <div class="stat-row"><span>Total investido</span><strong style="color:#993556">${fmt(C.tF)}</strong></div>
+      <div class="stat-row"><span>Voos registados</span><strong>${C.tFlights}</strong></div>
+      <div class="divider"></div><div class="mini-label">Custo por fase</div><div class="bar-group">`;
+  PHASES.forEach(p=>{const v=C.bPhF[p.id]||0,n=C.bPhFl[p.id]||0;
+    hF+=`<div class="bar-row"><span class="bar-label sm"><span class="cdot" style="background:${p.color};margin-right:4px"></span>${p.short}</span>
+      ${bBar(v,maxPhF,p.color)}<span class="bar-val">${fmt(v)} · ${n}v</span></div>`;});
+  hF+=`</div></div>
+    <div><div class="mini-label">Custo por pessoa</div><div class="bar-group">`;
+  TEAM.forEach(t=>{const[a,b]=DAV[t.dept];hF+=`<div class="bar-row">
+    <span class="bar-label"><div style="display:inline-flex;align-items:center;gap:5px"><div class="avatar" style="background:${a};color:${b};width:18px;height:18px;font-size:8px">${t.initials}</div>${t.initials}</div></span>
+    ${bBar(C.bPF[t.name],maxPF,"#993556")}<span class="bar-val bold">${fmt(C.bPF[t.name])}</span></div>`;});
+  hF+=`</div></div>
+    <div><div class="mini-label">Voos por pessoa</div><div class="bar-group">`;
+  TEAM.forEach(t=>{const[a,b]=DAV[t.dept];hF+=`<div class="bar-row">
+    <span class="bar-label"><div style="display:inline-flex;align-items:center;gap:5px"><div class="avatar" style="background:${a};color:${b};width:18px;height:18px;font-size:8px">${t.initials}</div>${t.initials}</div></span>
+    ${bBar(C.bPFl[t.name],maxPFl,"#F4C0D1")}<span class="bar-val bold">${C.bPFl[t.name]}v</span></div>`;});
+  hF+=`</div></div></div>`;
+  document.getElementById("dash-flights").innerHTML=hF;
+}
+
+// ═══════════════════════════════════════════════
+// GUARDAR / EXPORTAR / IMPORTAR
+// ═══════════════════════════════════════════════
+const APPS_SCRIPT_URL="https://script.google.com/a/macros/livemode.com/s/AKfycbzMqIIEmi0K1nyTShX9a-uhL0JCjYPabdTR4xs5x3A4TzFLjbPIZPOD2FRGJsby-cvf/exec";
+
+function getPayload(){return{S,DAYINFO,globals:{perDiem:PER_DIEM,transportDefault:TRANSPORT_DEFAULT}};}
+
+async function saveData(){
+  const btn=document.querySelector(".hbtn.save");
+  btn.textContent="A guardar...";btn.style.background="#BA7517";
+  try{
+    const res=await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      body:JSON.stringify({action:"save",data:getPayload()}),
+    });
+    const json=await res.json();
+    if(json.success){
+      btn.textContent="✓ Guardado!";btn.style.background="#1D9E75";
     } else {
-      output.setContent(JSON.stringify({ error: "Ação desconhecida" }));
+      throw new Error(json.error||"Erro desconhecido");
     }
-  } catch (err) {
-    output.setContent(JSON.stringify({ error: err.message }));
+  }catch(e){
+    // fallback para storage local
+    try{await window.storage.set("wc2026_logistica",JSON.stringify(getPayload()));}catch(_){}
+    btn.textContent="✓ Guardado (local)";btn.style.background="#534AB7";
+    console.warn("Sheets indisponível, guardado localmente:",e.message);
   }
-  return output;
+  setTimeout(()=>{btn.textContent="💾 Guardar";btn.style.background="";},2500);
 }
 
-function doPost(e) {
-  const output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-  try {
-    const payload = JSON.parse(e.postData.contents);
-    if (payload.action === "save") {
-      saveData(payload.data);
-      output.setContent(JSON.stringify({ success: true }));
-    } else if (payload.action === "load") {
-      output.setContent(JSON.stringify(loadData()));
-    } else {
-      output.setContent(JSON.stringify({ error: "Ação desconhecida" }));
+function exportData(){
+  const json=JSON.stringify(getPayload(),null,2);
+  const fname="LiveModeTVnoMundialInLoco.json";
+  document.getElementById("export-json").value=json;
+  document.getElementById("export-filename").textContent=fname;
+  document.getElementById("export-modal").style.display="flex";
+}
+
+document.getElementById("export-copy-btn").addEventListener("click",function(){
+  const ta=document.getElementById("export-json");
+  ta.select();ta.setSelectionRange(0,99999);
+  try{navigator.clipboard.writeText(ta.value);}catch(e){document.execCommand("copy");}
+  this.textContent="✓ Copiado!";this.style.background="#1D9E75";
+  setTimeout(()=>{this.textContent="📋 Copiar tudo";this.style.background="#1a1a18";},2500);
+});
+
+function triggerImport(){document.getElementById("file-input").click();}
+
+function applyLoadedData(data){
+  const src=data.S||data;
+  Object.keys(src).forEach(name=>{if(S[name])S[name]=src[name];});
+  if(data.DAYINFO)Object.keys(data.DAYINFO).forEach(d=>{if(DAYINFO[d])Object.assign(DAYINFO[d],data.DAYINFO[d]);});
+  if(data.globals){
+    if(data.globals.perDiem!=null){PER_DIEM=data.globals.perDiem;document.getElementById("input-perdiem").value=PER_DIEM;}
+    if(data.globals.transportDefault!=null){TRANSPORT_DEFAULT=data.globals.transportDefault;document.getElementById("input-transport").value=TRANSPORT_DEFAULT;}
+  }
+  renderList();if(selDay)renderDetail(selDay);
+  if(activeTab==="dashboard")renderDashboard();
+  if(activeTab==="jogos")renderJogos();
+}
+
+function onFileLoad(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{applyLoadedData(JSON.parse(ev.target.result));alert("Importado com sucesso!");}catch(err){alert("Erro: "+err.message);}};
+  r.readAsText(file);e.target.value="";
+}
+
+async function loadFromStorage(){
+  // Tenta carregar do Google Sheets primeiro
+  try{
+    const res=await fetch(`${APPS_SCRIPT_URL}?action=load`);
+    const data=await res.json();
+    if(data&&!data.empty&&!data.error){
+      applyLoadedData(data);
+      document.getElementById("header-status").textContent="✓ Sincronizado com Google Sheets";
+      return;
     }
-  } catch (err) {
-    output.setContent(JSON.stringify({ error: err.message }));
+  }catch(e){
+    console.warn("Sheets indisponível, a tentar storage local:",e.message);
   }
-  return output;
+  // Fallback: storage local do Claude
+  try{
+    const res=await window.storage.get("wc2026_logistica");
+    if(res){applyLoadedData(JSON.parse(res.value));document.getElementById("header-status").textContent="✓ Dados restaurados (local)";}
+  }catch(e){}
 }
 
-function getOrCreateSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.getRange("A1").setValue("json");
-    sheet.getRange("B1").setValue("updated_at");
-  }
-  return sheet;
-}
-
-function loadData() {
-  const sheet = getOrCreateSheet();
-  const val = sheet.getRange("A2").getValue();
-  if (!val) return { empty: true };
-  return JSON.parse(val);
-}
-
-function saveData(data) {
-  const sheet = getOrCreateSheet();
-  sheet.getRange("A2").setValue(JSON.stringify(data));
-  sheet.getRange("B2").setValue(new Date().toISOString());
-}
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+renderList();
+renderDashboard();
+loadFromStorage();
+</script>
+</body>
+</html>
