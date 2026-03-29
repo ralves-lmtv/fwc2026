@@ -930,15 +930,31 @@ function renderDashboard(){
 // ═══════════════════════════════════════════════
 // GUARDAR / EXPORTAR / IMPORTAR
 // ═══════════════════════════════════════════════
+const APPS_SCRIPT_URL="https://script.google.com/a/macros/livemode.com/s/AKfycbzMqIIEmi0K1nyTShX9a-uhL0JCjYPabdTR4xs5x3A4TzFLjbPIZPOD2FRGJsby-cvf/exec";
+
 function getPayload(){return{S,DAYINFO,globals:{perDiem:PER_DIEM,transportDefault:TRANSPORT_DEFAULT}};}
 
 async function saveData(){
+  const btn=document.querySelector(".hbtn.save");
+  btn.textContent="A guardar...";btn.style.background="#BA7517";
   try{
-    await window.storage.set("wc2026_logistica",JSON.stringify(getPayload()));
-    const btn=document.querySelector(".hbtn.save");
-    btn.textContent="✓ Guardado!";btn.style.background="#1D9E75";
-    setTimeout(()=>{btn.textContent="💾 Guardar";btn.style.background="";},2000);
-  }catch(e){alert("Erro ao guardar: "+e.message);}
+    const res=await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      body:JSON.stringify({action:"save",data:getPayload()}),
+    });
+    const json=await res.json();
+    if(json.success){
+      btn.textContent="✓ Guardado!";btn.style.background="#1D9E75";
+    } else {
+      throw new Error(json.error||"Erro desconhecido");
+    }
+  }catch(e){
+    // fallback para storage local
+    try{await window.storage.set("wc2026_logistica",JSON.stringify(getPayload()));}catch(_){}
+    btn.textContent="✓ Guardado (local)";btn.style.background="#534AB7";
+    console.warn("Sheets indisponível, guardado localmente:",e.message);
+  }
+  setTimeout(()=>{btn.textContent="💾 Guardar";btn.style.background="";},2500);
 }
 
 function exportData(){
@@ -980,9 +996,22 @@ function onFileLoad(e){
 }
 
 async function loadFromStorage(){
+  // Tenta carregar do Google Sheets primeiro
+  try{
+    const res=await fetch(`${APPS_SCRIPT_URL}?action=load`);
+    const data=await res.json();
+    if(data&&!data.empty&&!data.error){
+      applyLoadedData(data);
+      document.getElementById("header-status").textContent="✓ Sincronizado com Google Sheets";
+      return;
+    }
+  }catch(e){
+    console.warn("Sheets indisponível, a tentar storage local:",e.message);
+  }
+  // Fallback: storage local do Claude
   try{
     const res=await window.storage.get("wc2026_logistica");
-    if(res){applyLoadedData(JSON.parse(res.value));document.getElementById("header-status").textContent="✓ Dados restaurados";}
+    if(res){applyLoadedData(JSON.parse(res.value));document.getElementById("header-status").textContent="✓ Dados restaurados (local)";}
   }catch(e){}
 }
 
