@@ -1,41 +1,38 @@
 // ═══════════════════════════════════════════════════════
 // LIVEMODETV NO MUNDIAL 2026 — Google Apps Script API
+// Cola este código no Apps Script ligado ao teu Google Sheet
 // ═══════════════════════════════════════════════════════
 
 const SHEET_NAME = "dados";
 
 function doGet(e) {
-  const output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-  try {
-    const action = e.parameter.action;
-    if (action === "load") {
-      output.setContent(JSON.stringify(loadData()));
-    } else {
-      output.setContent(JSON.stringify({ error: "Ação desconhecida" }));
-    }
-  } catch (err) {
-    output.setContent(JSON.stringify({ error: err.message }));
-  }
-  return output;
+  return handleRequest(e);
 }
 
 function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
+
   try {
-    const payload = JSON.parse(e.postData.contents);
-    if (payload.action === "save") {
+    const action = e.parameter.action || (e.postData ? JSON.parse(e.postData.contents).action : null);
+
+    if (action === "load") {
+      output.setContent(JSON.stringify(loadData()));
+    } else if (action === "save") {
+      const payload = JSON.parse(e.postData.contents);
       saveData(payload.data);
       output.setContent(JSON.stringify({ success: true }));
-    } else if (payload.action === "load") {
-      output.setContent(JSON.stringify(loadData()));
     } else {
       output.setContent(JSON.stringify({ error: "Ação desconhecida" }));
     }
   } catch (err) {
     output.setContent(JSON.stringify({ error: err.message }));
   }
+
   return output;
 }
 
