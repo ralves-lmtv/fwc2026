@@ -1219,7 +1219,8 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
     setShowForm(false);
   }
 
-  function deleteEntry(id) { setAgenda(prev=>prev.filter(e=>e.id!==id)); }
+  function deleteEntry(id)  { setAgenda(prev=>prev.filter(e=>e.id!==id)); }
+  function toggleDone(id)   { setAgenda(prev=>prev.map(e=>e.id===id?{...e,done:!e.done}:e)); }
 
   // Scroll selected date chip into view
   useEffect(()=>{
@@ -1227,6 +1228,56 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
     const btn = dateBarRef.current.querySelector('[data-active="true"]');
     if (btn) btn.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});
   }, [selectedDate]);
+
+  // ── Meeting info (hoisted so it's accessible in per-person loop too) ──
+  const [showMeetingEdit, setShowMeetingEdit] = useState(false);
+
+  const meetingEntry = agenda.find(e=>e.date===selectedDate && e.personId==="__team__" && e.type==="reuniao_equipa");
+  const meetingTime  = meetingEntry?.time || "";
+
+  function saveMeeting(updates) {
+    if (meetingEntry) {
+      setAgenda(prev=>prev.map(e=>e.id===meetingEntry.id ? {...e,...updates} : e));
+    } else {
+      setAgenda(prev=>[...prev,{id:"mtg_"+selectedDate,date:selectedDate,personId:"__team__",type:"reuniao_equipa",time:"",notes:"",matchId:null,...updates}]);
+    }
+  }
+
+  // Per-person city from logistics (used for auto mode detection)
+  const withCity = team.map(person=>{
+    const hotel = (logistics?.hotels||[]).find(h=>
+      h.checkIn<=selectedDate && h.checkOut>selectedDate && (h.personIds||[]).includes(person.id));
+    const flights = (logistics?.flights||[])
+      .filter(f=>f.date===selectedDate && (f.personIds||[]).includes(person.id))
+      .sort((a,b)=>(a.depTime||"").localeCompare(b.depTime||""));
+    const city = hotel?.city ||
+      (flights.length>0 ? flights[flights.length-1].to?.split(/[·\-]/)[0].trim() : null);
+    return {person, city};
+  });
+  const known        = withCity.filter(x=>x.city);
+  const uniqueCities = [...new Set(known.map(x=>x.city))];
+  const autoMeetMode = known.length===0 ? null : uniqueCities.length===1 ? "presencial" : "virtual";
+
+  // Override from meeting entry (admin can set manually)
+  const modeOverride   = meetingEntry?.modeOverride || null; // "presencial"|"virtual"|null
+  const meetMode       = modeOverride || autoMeetMode;
+
+  // Attendees: from meeting entry or all team
+  const attendeeIds    = meetingEntry?.attendeeIds || null; // null = all team
+  const effectiveAttendees = attendeeIds
+    ? team.filter(p=>attendeeIds.includes(p.id))
+    : team;
+
+  const modeColor = meetMode==="presencial" ? "#22c55e" : meetMode==="virtual" ? "#3b82f6" : "#64748b";
+  const modeLabel = meetMode==="presencial" ? "🤝 Presencial" : meetMode==="virtual" ? "💻 Virtual" : "❓ Localização desconhecida";
+  const modeDesc  = meetMode==="presencial"
+    ? (uniqueCities.length===1 ? `Toda a equipa em ${uniqueCities[0]}` : "Presencial")
+    : meetMode==="virtual" ? `Equipa em ${Math.max(uniqueCities.length,1)} cidades`
+    : "Sem dados de logística";
+
+  // ── Split matches: broadcast vs others ──
+  const broadcastMatches = dayMatches.filter(m=>broadcastData?.[m.id]?.enabled);
+  const otherMatches     = dayMatches.filter(m=>!broadcastData?.[m.id]?.enabled);
 
   return (
     <div className="space-y-3">
@@ -1278,99 +1329,142 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
         )}
       </div>
 
-      {/* ── Reunião de Equipa (auto) ── */}
-      {(()=>{
-        // Meeting time stored as a special agenda entry: personId="__team__", type="reuniao_equipa"
-        const meetingEntry = agenda.find(e=>e.date===selectedDate && e.personId==="__team__" && e.type==="reuniao_equipa");
-        const meetingTime  = meetingEntry?.time || "";
-
-        function saveMeetingTime(t) {
-          if (meetingEntry) {
-            setAgenda(prev=>prev.map(e=>e.id===meetingEntry.id ? {...e,time:t} : e));
-          } else {
-            setAgenda(prev=>[...prev,{id:"mtg_"+selectedDate,date:selectedDate,personId:"__team__",type:"reuniao_equipa",time:t,notes:"",matchId:null}]);
-          }
-        }
-
-        // Derive city per person for this day
-        const withCity = team.map(person=>{
-          const hotel = (logistics?.hotels||[]).find(h=>
-            h.checkIn<=selectedDate && h.checkOut>selectedDate && (h.personIds||[]).includes(person.id));
-          const flights = (logistics?.flights||[])
-            .filter(f=>f.date===selectedDate && (f.personIds||[]).includes(person.id))
-            .sort((a,b)=>(a.depTime||"").localeCompare(b.depTime||""));
-          const city = hotel?.city ||
-            (flights.length>0 ? flights[flights.length-1].to?.split(/[·\-]/)[0].trim() : null);
-          return {person, city};
-        });
-
-        const known        = withCity.filter(x=>x.city);
-        const uniqueCities = [...new Set(known.map(x=>x.city))];
-        const mode = known.length===0        ? null
-                   : uniqueCities.length===1 ? "presencial"
-                   :                           "virtual";
-
-        const modeColor = mode==="presencial" ? "#22c55e" : mode==="virtual" ? "#3b82f6" : "#64748b";
-        const modeLabel = mode==="presencial" ? "🤝 Presencial" : mode==="virtual" ? "💻 Virtual" : "❓ Localização desconhecida";
-        const modeDesc  = mode==="presencial" ? `Toda a equipa em ${uniqueCities[0]}` : mode==="virtual" ? `Equipa em ${uniqueCities.length} cidades` : "Sem dados de logística";
-
-        return (
-          <div className="rounded-2xl border overflow-hidden" style={{borderColor:modeColor+"44"}}>
-            {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3" style={{background:modeColor+"11"}}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                style={{background:modeColor+"22",color:modeColor}}>🗓️</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold text-slate-200">Reunião de Equipa</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium border"
-                    style={{background:modeColor+"22",color:modeColor,borderColor:modeColor+"44"}}>
-                    {modeLabel}
-                  </span>
-                </div>
-                <div className="text-xs mt-0.5" style={{color:modeColor+"cc"}}>{modeDesc}</div>
-              </div>
-              {/* Time — editable by admin, read-only for public */}
-              {isAdmin ? (
-                <input type="time" value={meetingTime}
-                  onChange={e=>saveMeetingTime(e.target.value)}
-                  className="text-sm font-semibold bg-slate-700/60 border border-slate-600 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none shrink-0 w-28"
-                  title="Horário da reunião"/>
-              ) : meetingTime ? (
-                <span className="text-sm font-semibold text-slate-200 shrink-0">🕐 {meetingTime}</span>
-              ) : null}
+      {/* ── Reunião de Equipa ── */}
+      <div className="rounded-2xl border overflow-hidden" style={{borderColor:modeColor+"44"}}>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3" style={{background:modeColor+"11"}}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+            style={{background:modeColor+"22",color:modeColor}}>🗓️</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-slate-200">Reunião de Equipa</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium border"
+                style={{background:modeColor+"22",color:modeColor,borderColor:modeColor+"44"}}>
+                {modeLabel}
+              </span>
+              {modeOverride && (
+                <span className="text-xs text-slate-500 italic">manual</span>
+              )}
             </div>
-            {/* Per-person cities */}
-            <div className="px-4 py-2.5 flex gap-2 flex-wrap bg-slate-800/40">
-              {withCity.map(({person,city})=>(
-                <div key={person.id} className="flex items-center gap-1.5 text-xs bg-slate-700/50 border border-slate-600/50 rounded-full px-2.5 py-1">
-                  <Avatar name={person.name} color={person.color} size="sm"/>
-                  <span style={{color:person.color}} className="font-medium">{person.name.split(" ")[0]}</span>
-                  <span className="text-slate-400">{city ? `· 📍 ${city}` : "· ?"}</span>
-                </div>
-              ))}
-              {team.length===0&&<span className="text-xs text-slate-600 italic">Sem equipa definida.</span>}
+            <div className="text-xs mt-0.5" style={{color:modeColor+"cc"}}>{modeDesc}</div>
+          </div>
+          {/* Time */}
+          {isAdmin ? (
+            <input type="time" value={meetingTime}
+              onChange={e=>saveMeeting({time:e.target.value})}
+              className="text-sm font-semibold bg-slate-700/60 border border-slate-600 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none shrink-0 w-28"
+              title="Horário da reunião"/>
+          ) : meetingTime ? (
+            <span className="text-sm font-semibold text-slate-200 shrink-0">🕐 {meetingTime}</span>
+          ) : null}
+          {/* Edit toggle — admin only */}
+          {isAdmin && (
+            <button onClick={()=>setShowMeetingEdit(v=>!v)}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${showMeetingEdit?"bg-emerald-500/20 text-emerald-400":"text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"}`}
+              title="Editar reunião">✏️</button>
+          )}
+        </div>
+
+        {/* Editable panel — admin only */}
+        {isAdmin && showMeetingEdit && (
+          <div className="px-4 py-3 bg-slate-800/60 border-t border-slate-700/40 space-y-3">
+            {/* Mode selector */}
+            <div>
+              <div className="text-xs text-slate-400 mb-1.5 font-medium">Formato</div>
+              <div className="flex gap-2">
+                {[
+                  {val:null,    label:"🔄 Auto",        desc:"Definido pela logística"},
+                  {val:"presencial", label:"🤝 Presencial", desc:"Equipa no mesmo local"},
+                  {val:"virtual",    label:"💻 Virtual",    desc:"Online / por videochamada"},
+                ].map(opt=>(
+                  <button key={String(opt.val)} onClick={()=>saveMeeting({modeOverride:opt.val})}
+                    className={`flex-1 px-2 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
+                      modeOverride===opt.val
+                        ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300"
+                        : "border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Attendees */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-slate-400 font-medium">Participantes</span>
+                <button onClick={()=>saveMeeting({attendeeIds:null})}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                  Todos
+                </button>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {team.map(p=>{
+                  const isIn = attendeeIds===null || attendeeIds.includes(p.id);
+                  function toggleAttendee() {
+                    const cur = attendeeIds===null ? team.map(x=>x.id) : [...attendeeIds];
+                    const next = cur.includes(p.id) ? cur.filter(id=>id!==p.id) : [...cur,p.id];
+                    saveMeeting({attendeeIds: next.length===team.length ? null : next});
+                  }
+                  return (
+                    <button key={p.id} onClick={toggleAttendee}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                        isIn
+                          ? "border-current"
+                          : "border-slate-700 text-slate-600 opacity-50"
+                      }`}
+                      style={isIn ? {color:p.color,background:p.color+"22",borderColor:p.color+"55"} : {}}>
+                      <Avatar name={p.name} color={isIn?p.color:"#64748b"} size="sm"/>
+                      {p.name.split(" ")[0]}
+                      {!isIn && <span className="text-slate-600">✕</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        );
-      })()}
+        )}
 
-      {/* ── Emissão em Direto (matches with broadcast enabled) ── */}
-      {hasMatchToday && dayMatches.some(m=>broadcastData?.[m.id]?.enabled) && (
-        <div className="rounded-2xl border border-red-700/30 overflow-hidden">
+        {/* Attendees display row */}
+        <div className="px-4 py-2.5 flex gap-2 flex-wrap bg-slate-800/40">
+          {effectiveAttendees.length > 0 ? effectiveAttendees.map(person=>{
+            const wc = withCity.find(x=>x.person.id===person.id);
+            const city = wc?.city;
+            return (
+              <div key={person.id} className="flex items-center gap-1.5 text-xs bg-slate-700/50 border border-slate-600/50 rounded-full px-2.5 py-1">
+                <Avatar name={person.name} color={person.color} size="sm"/>
+                <span style={{color:person.color}} className="font-medium">{person.name.split(" ")[0]}</span>
+                <span className="text-slate-400">{city ? `· 📍 ${city}` : "· ?"}</span>
+              </div>
+            );
+          }) : (
+            <span className="text-xs text-slate-600 italic">Sem equipa definida.</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── EM DIRETO NA LIVEMODETV ── */}
+      {broadcastMatches.length > 0 && (
+        <div className="rounded-2xl border border-red-600/40 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 bg-red-600/10">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 bg-red-600/20 text-red-400">📡</div>
             <div className="flex-1 min-w-0">
-              <span className="text-sm font-semibold text-slate-200">Emissão em Direto</span>
+              <span className="text-sm font-bold text-red-300 uppercase tracking-wide">EM DIRETO NA LIVEMODETV</span>
             </div>
           </div>
           <div className="divide-y divide-slate-700/30 bg-slate-800/40">
-            {dayMatches.filter(m=>broadcastData?.[m.id]?.enabled).map(m=>{
+            {broadcastMatches.map(m=>{
               const bc = broadcastData[m.id];
-              const koLocal = m.time;
-              const koPT    = ptTime(m.time, m.city);
+              const koLocal   = m.time;
+              const koPT      = ptTime(m.time, m.city);
               const preLocal  = bc.preGame  ? localFromPT(bc.preGame,  m.city) : null;
               const postLocal = bc.postGame ? localFromPT(bc.postGame, m.city) : null;
+              const md        = pitchData?.[m.id];
+              const contracted = md?.inLoco
+                ? Object.entries(md.positions||{})
+                    .map(([posId,pd])=>({posId,pd,cat:PITCH_POSITIONS_CATALOG.find(p=>p.id===posId)}))
+                    .filter(x=>x.cat)
+                    .sort((a,b)=>(a.pd.time||"99:99").localeCompare(b.pd.time||"99:99"))
+                : [];
               function TimeCell({label, pt, local}) {
                 return (
                   <div className="flex flex-col gap-0.5 min-w-[7rem]">
@@ -1385,18 +1479,38 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                 );
               }
               return (
-                <div key={m.id} className="px-4 py-3">
-                  <div className="flex items-center gap-2 flex-wrap text-xs mb-2">
+                <div key={m.id} className="px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className="font-bold text-amber-400">#{m.id}</span>
-                    <span className="font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
+                    <span className="font-semibold text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
                     <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
                     <span className="text-slate-500">· {m.city}</span>
                   </div>
                   <div className="flex gap-4 flex-wrap">
                     <TimeCell label="⏱ Início pré-jogo" pt={bc.preGame||null} local={preLocal}/>
-                    <TimeCell label="⚽ Kick-off" pt={koPT} local={koLocal}/>
-                    <TimeCell label="🏁 Fim pós-jogo" pt={bc.postGame||null} local={postLocal}/>
+                    <TimeCell label="⚽ Kick-off"        pt={koPT}            local={koLocal}/>
+                    <TimeCell label="🏁 Fim pós-jogo"   pt={bc.postGame||null} local={postLocal}/>
                   </div>
+                  {contracted.length>0 && (
+                    <div className="border-t border-slate-700/30 pt-2 space-y-1">
+                      {contracted.map(({posId,pd,cat})=>{
+                        const people = (pd.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+                        return (
+                          <div key={posId} className="flex items-center gap-2 text-xs flex-wrap">
+                            <span>{cat.emoji}</span>
+                            <span className="text-slate-300">{cat.label}</span>
+                            {pd.time&&<span className="text-slate-500">🕐 {pd.time} / 🇵🇹 {ptTime(pd.time,m.city)}</span>}
+                            <div className="flex gap-1 flex-wrap">
+                              {people.map(p=>(
+                                <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                                  className="px-2 py-0.5 rounded-full border font-medium">{p.name.split(" ")[0]}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1404,62 +1518,55 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
         </div>
       )}
 
-      {/* Matches on this day (summary + pitch positions) */}
-      {hasMatchToday && (
-        <div className="space-y-2">
-          {dayMatches.map(m=>{
-            const md = pitchData?.[m.id];
-            const contracted = md?.inLoco
-              ? Object.entries(md.positions||{})
-                  .map(([posId,pd])=>({posId,pd,cat:PITCH_POSITIONS_CATALOG.find(p=>p.id===posId)}))
-                  .filter(x=>x.cat)
-                  .sort((a,b)=>(a.pd.time||"99:99").localeCompare(b.pd.time||"99:99"))
-              : [];
-            return (
-              <div key={m.id} className={`rounded-2xl border overflow-hidden ${md?.inLoco?"border-emerald-700/30":"border-amber-500/20"}`}>
-                {/* Match header */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 flex-wrap text-xs">
-                  <span className="font-bold text-amber-400">#{m.id}</span>
-                  <span className="font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
-                  <span className="text-slate-400">· {m.city} · ⏰ {m.time} <span className="text-slate-500">local</span> / 🇵🇹 {ptTime(m.time,m.city)} <span className="text-slate-500">PT</span></span>
-                  <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
-                  {md?.inLoco && (
-                    <span className="ml-auto bg-emerald-600/20 border border-emerald-700/40 text-emerald-400 px-2 py-0.5 rounded-lg">📋 In loco</span>
+      {/* ── OUTRAS PARTIDAS ── */}
+      {otherMatches.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/20 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/8">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 bg-amber-500/15 text-amber-400">⚽</div>
+            <span className="text-sm font-bold text-amber-300 uppercase tracking-wide">OUTRAS PARTIDAS</span>
+          </div>
+          <div className="divide-y divide-slate-700/30 bg-slate-800/40">
+            {otherMatches.map(m=>{
+              const md = pitchData?.[m.id];
+              const contracted = md?.inLoco
+                ? Object.entries(md.positions||{})
+                    .map(([posId,pd])=>({posId,pd,cat:PITCH_POSITIONS_CATALOG.find(p=>p.id===posId)}))
+                    .filter(x=>x.cat)
+                    .sort((a,b)=>(a.pd.time||"99:99").localeCompare(b.pd.time||"99:99"))
+                : [];
+              return (
+                <div key={m.id} className="px-4 py-3 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="font-bold text-amber-400">#{m.id}</span>
+                    <span className="font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
+                    <span className="text-slate-400">· {m.city} · ⏰ {m.time} <span className="text-slate-500">local</span> / 🇵🇹 {ptTime(m.time,m.city)} <span className="text-slate-500">PT</span></span>
+                    <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
+                    {md?.inLoco && <span className="bg-emerald-600/20 border border-emerald-700/40 text-emerald-400 px-2 py-0.5 rounded-lg">📋 In loco</span>}
+                  </div>
+                  {contracted.length>0 && (
+                    <div className="space-y-1 pl-1">
+                      {contracted.map(({posId,pd,cat})=>{
+                        const people = (pd.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+                        return (
+                          <div key={posId} className="flex items-center gap-2 text-xs flex-wrap">
+                            <span>{cat.emoji}</span>
+                            <span className="text-slate-300">{cat.label}</span>
+                            {pd.time&&<span className="text-slate-500">🕐 {pd.time} / 🇵🇹 {ptTime(pd.time,m.city)}</span>}
+                            <div className="flex gap-1 flex-wrap">
+                              {people.map(p=>(
+                                <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                                  className="px-2 py-0.5 rounded-full border font-medium">{p.name.split(" ")[0]}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                {/* Pitch positions (if in loco and contracted) */}
-                {contracted.length>0 && (
-                  <div className="divide-y divide-slate-700/30 bg-slate-800/40">
-                    {contracted.map(({posId,pd,cat})=>{
-                      const people = (pd.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
-                      return (
-                        <div key={posId} className="flex items-center gap-2 px-4 py-2 text-xs flex-wrap">
-                          <span className="text-base">{cat.emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-slate-200">{cat.label}</span>
-                            {cat.note&&<span className="text-slate-500 ml-1">· {cat.note}</span>}
-                          </div>
-                          {pd.time && (
-                            <span className="text-slate-400">🕐 {pd.time} <span className="text-blue-400">/ 🇵🇹 {ptTime(pd.time,m.city)}</span></span>
-                          )}
-                          <div className="flex gap-1 flex-wrap">
-                            {people.map(p=>(
-                              <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
-                                className="px-2 py-0.5 rounded-full border font-medium">
-                                {p.name.split(" ")[0]}
-                              </span>
-                            ))}
-                            {people.length===0&&<span className="text-slate-600 italic">Ninguém atribuído</span>}
-                          </div>
-                          {pd.notes&&<span className="text-slate-500 w-full pl-6">📝 {pd.notes}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1516,18 +1623,33 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                 )}
               </div>
 
-              {/* Timeline: manual entries + auto flights */}
-              {!hasAnything ? (
-                <div className="px-4 py-3 text-xs text-slate-600 italic">Sem compromissos neste dia.</div>
-              ) : (
-                <div className="divide-y divide-slate-700/30">
+              {/* Timeline: sempre começa com Reunião de Equipa (se participar), depois manual entries + auto flights */}
+              <div className="divide-y divide-slate-700/30">
+                {/* Reunião de Equipa — sempre primeiro, só se a pessoa participar */}
+                {(attendeeIds===null || attendeeIds.includes(person.id)) && (
+                  <div className="px-4 py-2.5 flex items-center gap-3" style={{background:modeColor+"08"}}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0"
+                      style={{background:modeColor+"22",color:modeColor}}>🗓️</div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-slate-300">Reunião de Equipa</span>
+                      <span className="text-xs ml-2 px-1.5 py-0.5 rounded-full font-medium"
+                        style={{background:modeColor+"22",color:modeColor}}>{modeLabel}</span>
+                    </div>
+                    {meetingTime
+                      ? <span className="text-xs font-semibold text-slate-200 shrink-0">🕐 {meetingTime}</span>
+                      : <span className="text-xs text-slate-600 italic shrink-0">hora por definir</span>}
+                  </div>
+                )}
+                {!hasAnything && (
+                  <div className="px-4 py-3 text-xs text-slate-600 italic">Sem outros compromissos neste dia.</div>
+                )}
                   {timelineItems.map(item=>{
                     if (item._k==="manual") {
                       const e = item.data;
                       const ct = cType(e.type);
                       const linkedMatch = e.matchId ? FIFA_MATCHES.find(m=>m.id===e.matchId) : null;
                       return <EntryCard key={e.id} e={e} ct={ct} linkedMatch={linkedMatch}
-                               isAdmin={isAdmin} onEdit={()=>openEdit(e)}/>;
+                               isAdmin={isAdmin} onEdit={()=>openEdit(e)} onToggleDone={()=>toggleDone(e.id)}/>;
                     }
                     // Auto flight entry
                     const f = item.data;
@@ -1572,8 +1694,7 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                       </div>
                     </div>
                   )}
-                </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -1582,27 +1703,43 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
   );
 }
 
-function EntryCard({ e, ct, linkedMatch, isAdmin, onEdit }) {
+function EntryCard({ e, ct, linkedMatch, isAdmin, onEdit, onToggleDone }) {
+  const done = !!e.done;
   return (
-    <div className="px-4 py-3">
+    <div className={`px-4 py-3 transition-colors ${done ? "bg-slate-800/30" : ""}`}>
       <div className="flex items-start gap-3">
-        <div style={{background:ct.color+"22",color:ct.color}}
+        {/* Done toggle — admin only */}
+        {isAdmin && (
+          <button onClick={onToggleDone}
+            title={done ? "Marcar como pendente" : "Marcar como feito"}
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1.5 transition-colors ${
+              done
+                ? "bg-emerald-500 border-emerald-500 text-white"
+                : "border-slate-600 hover:border-emerald-500 text-transparent hover:text-emerald-500"
+            }`}>
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-2.5 h-2.5">
+              <polyline points="1.5,6 4.5,9 10.5,3"/>
+            </svg>
+          </button>
+        )}
+        <div style={{background:done ? "#64748b22" : ct.color+"22", color: done ? "#64748b" : ct.color}}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 mt-0.5">
           {ct.emoji}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-slate-200">
+            <span className={`text-sm font-semibold ${done ? "line-through text-slate-500" : "text-slate-200"}`}>
               {e.type==="outro"&&e.customType ? e.customType : ct.label}
             </span>
-            {e.time&&<span className="text-xs text-slate-500">🕐 {e.time}</span>}
+            {e.time&&<span className={`text-xs ${done ? "text-slate-600" : "text-slate-500"}`}>🕐 {e.time}</span>}
+            {done && <span className="text-xs text-emerald-600 font-medium">✓ feito</span>}
           </div>
           {linkedMatch&&(
-            <div className="text-xs text-amber-400 mt-0.5">
+            <div className={`text-xs mt-0.5 ${done ? "text-slate-600" : "text-amber-400"}`}>
               ⚽ #{linkedMatch.id} {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)} · {linkedMatch.city}
             </div>
           )}
-          {e.notes&&<div className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{e.notes}</div>}
+          {e.notes&&<div className={`text-xs mt-1 whitespace-pre-wrap ${done ? "text-slate-600" : "text-slate-400"}`}>{e.notes}</div>}
         </div>
         {isAdmin&&(
           <button onClick={onEdit} className="p-1 text-slate-600 hover:text-slate-300 transition-colors shrink-0">✏️</button>
