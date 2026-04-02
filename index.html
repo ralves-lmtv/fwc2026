@@ -166,12 +166,25 @@ const LS_TEAM_KEY  = "livemode_mundial_team_v2";
 const LS_PW_KEY    = "livemode_mundial_admin_pw";
 const DEFAULT_PW   = "livemode2026";
 
+const PASSWORDS = {
+  admin: () => localStorage.getItem("livemode_pw_admin") || "livemode2026",
+  conteudo: "conteudo2026",
+  comercial: "comercial2026"
+};
+
+function checkPassword(pw) {
+  if (pw === PASSWORDS.admin()) return "admin";
+  if (pw === PASSWORDS.conteudo) return "conteudo";
+  if (pw === PASSWORDS.comercial) return "comercial";
+  return null;
+}
+
 function loadTeam() {
   try { const s = localStorage.getItem(LS_TEAM_KEY); if (s) return JSON.parse(s); } catch {}
   return INITIAL_TEAM;
 }
 function getAdminPw() {
-  return localStorage.getItem(LS_PW_KEY) || DEFAULT_PW;
+  return PASSWORDS.admin();
 }
 
 function fmtDate(d) {
@@ -288,7 +301,8 @@ function LoginModal({ onClose, onSuccess }) {
 
   function submit(e) {
     e.preventDefault();
-    if (pw === getAdminPw()) { onSuccess(); }
+    const role = checkPassword(pw);
+    if (role) { onSuccess(role); }
     else { setError(true); setPw(""); }
   }
 
@@ -326,7 +340,7 @@ function LoginModal({ onClose, onSuccess }) {
 }
 
 // ── Change Password Modal ────────────────────────────────────────────────────
-function ChangePwModal({ onClose }) {
+function ChangePwModal({ onClose, userRole }) {
   const [current, setCurrent] = useState("");
   const [next, setNext]       = useState("");
   const [confirm, setConfirm] = useState("");
@@ -334,10 +348,10 @@ function ChangePwModal({ onClose }) {
 
   function submit(e) {
     e.preventDefault();
-    if (current !== getAdminPw()) return setMsg({type:"err", text:"Senha atual incorreta"});
+    if (checkPassword(current) !== "admin") return setMsg({type:"err", text:"Senha atual incorreta"});
     if (next.length < 4)          return setMsg({type:"err", text:"Nova senha muito curta (mín. 4 caracteres)"});
     if (next !== confirm)          return setMsg({type:"err", text:"As senhas não coincidem"});
-    localStorage.setItem(LS_PW_KEY, next);
+    localStorage.setItem("livemode_pw_admin", next);
     setMsg({type:"ok", text:"Senha alterada com sucesso!"});
     setTimeout(onClose, 1200);
   }
@@ -372,6 +386,143 @@ function ChangePwModal({ onClose }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── HOME TAB (NEW) ──────────────────────────────────────────────────────────────
+function Home({ team, agenda, broadcastData }) {
+  // Find today's date
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Check if today has matches or agenda items
+  const todayMatches = FIFA_MATCHES.filter(m => m.date === today);
+  const todayAgenda = agenda.filter(e => e.date === today && e.personId !== "__team__");
+  const todayHasContent = todayMatches.length > 0 || todayAgenda.length > 0;
+  
+  // If no content today, find next date with activity
+  let displayDate = today;
+  if (!todayHasContent) {
+    const allDates = [
+      ...new Set([
+        ...FIFA_MATCHES.map(m => m.date),
+        ...agenda.filter(e => e.personId !== "__team__").map(e => e.date)
+      ])
+    ].sort();
+    displayDate = allDates.find(d => d > today) || allDates[allDates.length - 1] || today;
+  }
+  
+  const dayMatches = FIFA_MATCHES.filter(m => m.date === displayDate);
+  const dayAgenda = agenda.filter(e => e.date === displayDate && e.personId !== "__team__");
+  
+  const dateObj = new Date(displayDate + "T12:00:00");
+  const dateStr = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
+  const headerLabel = displayDate === today ? "📅 Hoje" : "📅 Próximo Dia";
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 p-4">
+        <div className="text-lg font-bold text-slate-100 capitalize">
+          {headerLabel} — {dateStr}
+        </div>
+      </div>
+
+      {/* Day summary: Matches */}
+      {dayMatches.length > 0 && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <div className="text-sm font-semibold text-slate-200 mb-3">⚽ Jogos ({dayMatches.length})</div>
+          <div className="space-y-2">
+            {dayMatches.map(m => {
+              const bc = broadcastData?.[m.id];
+              const pt = ptTime(m.time, m.city);
+              return (
+                <div key={m.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">📍 {m.city} · {m.venue}</div>
+                    </div>
+                    <div className="text-xs text-slate-400 text-right shrink-0">
+                      <div>🕐 {m.time} local</div>
+                      <div className="text-slate-500">🇵🇹 {pt} PT</div>
+                    </div>
+                  </div>
+                  {bc?.enabled && (
+                    <div className="mt-2 pt-2 border-t border-slate-700/30 text-xs">
+                      <span className="text-red-400 font-medium">📡 Emissão ao vivo</span>
+                      {bc.preGame && <div className="text-slate-400">Pré-jogo: 🇵🇹 {bc.preGame}</div>}
+                      {bc.postGame && <div className="text-slate-400">Pós-jogo: 🇵🇹 {bc.postGame}</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Day summary: Agenda items */}
+      {dayAgenda.length > 0 && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <div className="text-sm font-semibold text-slate-200 mb-3">📋 Pauta ({dayAgenda.length})</div>
+          <div className="space-y-2">
+            {dayAgenda.map(e => {
+              const p = team.find(x => x.id === e.personId);
+              const ct = COMMITMENT_TYPES.find(t => t.id === e.type) || {emoji: "📝", label: e.customType || "Outro"};
+              const linkedMatch = e.matchId ? FIFA_MATCHES.find(m => m.id === e.matchId) : null;
+              return (
+                <div key={e.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <span className="text-base shrink-0">{ct.emoji}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium text-slate-200">{ct.label}</span>
+                        {p && <Avatar name={p.name} color={p.color} size="sm"/>}
+                      </div>
+                      {e.time && <div className="text-xs text-slate-400 mt-0.5">🕐 {e.time}</div>}
+                      {linkedMatch && <div className="text-xs text-slate-400 mt-0.5">⚽ {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)}</div>}
+                      {e.notes && <div className="text-xs text-slate-500 mt-0.5">📝 {e.notes}</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 Resumo Geral</div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(() => {
+            const coveredMatchIds = new Set(team.flatMap(p => p.assignments));
+            const cityPeople = {};
+            team.forEach(p => {
+              p.assignments.forEach(mid => {
+                const m = FIFA_MATCHES.find(x => x.id === mid);
+                if (!m) return;
+                if (!cityPeople[m.city]) cityPeople[m.city] = new Set();
+                cityPeople[m.city].add(p.id);
+              });
+            });
+            const stats = [
+              {emoji:"👥",label:"Membros",value:team.length,color:"#3b82f6"},
+              {emoji:"⚽",label:"Jogos Cobertos",value:coveredMatchIds.size,color:"#22c55e"},
+              {emoji:"📋",label:"Total de Pautas",value:team.reduce((s,p)=>s+p.assignments.length,0),color:"#f59e0b"},
+              {emoji:"🏙️",label:"Cidades",value:Object.keys(cityPeople).length,color:"#ec4899"},
+            ];
+            return stats.map(s=>(
+              <div key={s.label} style={{borderColor:s.color+"33"}} className="bg-slate-800/70 rounded-2xl p-4 border">
+                <div className="text-2xl mb-1">{s.emoji}</div>
+                <div style={{color:s.color}} className="text-2xl font-bold">{s.value}</div>
+                <div className="text-xs text-slate-400">{s.label}</div>
+              </div>
+            ));
+          })()}
+        </div>
       </div>
     </div>
   );
@@ -1041,7 +1192,7 @@ function EntryForm({ entry, team, date, onSave, onClose, onDelete }) {
 }
 
 // ── AGENDA ───────────────────────────────────────────────────────────────────
-function Agenda({ team, isAdmin, agenda, setAgenda, pitchData, logistics, broadcastData }) {
+function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logistics, broadcastData }) {
   const dateBarRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState("2026-06-11");
   const [showForm, setShowForm]         = useState(false);
@@ -1119,7 +1270,7 @@ function Agenda({ team, isAdmin, agenda, setAgenda, pitchData, logistics, broadc
             </div>
           )}
         </div>
-        {isAdmin&&(
+        {(isAdmin || userRole === "conteudo" || userRole === "comercial")&&(
           <button onClick={()=>openAdd(null)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors">
             + Compromisso
@@ -2275,33 +2426,13 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
         </div>
       </div>
 
-      {/* ── EDITORIAL ── */}
-      <section>
-        <SectionTitle>📋 Editorial</SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <KpiCard emoji="⚽" label="Jogos cobertos in loco"           value={gamesInLoco}  color="#10b981"/>
-          <KpiCard emoji="📡" label="Entradas em Direto"               value={nDireto}      color="#ec4899"/>
-          <KpiCard emoji="🎬" label="Gravações de Conteúdo"            value={nGravacao}    color="#f97316"/>
-          <KpiCard emoji="📲" label="Redes Sociais"                    value={nRedes}       color="#a855f7"/>
-          <KpiCard emoji="🤝" label="Ações Comerciais"                 value={nComercial}   color="#06b6d4"/>
-          <KpiCard emoji="📦" label="Total conteúdos produzidos"       value={totalContent} color="#f59e0b"
-            sub="direto + gravação + redes + comercial"/>
-        </div>
-        {(nJogo > 0 || nTreino > 0) && (
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {nJogo   > 0 && <KpiCard emoji="⚽" label="Coberturas de Jogo"   value={nJogo}   color="#ef4444"/>}
-            {nTreino > 0 && <KpiCard emoji="🏋️" label="Coberturas de Treino" value={nTreino} color="#22c55e"/>}
-          </div>
-        )}
-      </section>
-
       {/* ── ACREDITAÇÕES / PITCH POSITIONS (USD) ── */}
       <section>
         <SectionTitle total={fmtUSD(totalPitchUSD)}>🎫 Acreditações — Pitch Positions (USD)</SectionTitle>
 
         {inLocoEntries.length === 0 ? (
           <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
-            Nenhum jogo in loco selecionado ainda na aba Acreditações.
+            Nenhum jogo in loco selecionado ainda na aba Pitch Positions.
           </div>
         ) : (
           <div className="space-y-3">
@@ -2465,6 +2596,26 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
         )}
       </section>
 
+      {/* ── EDITORIAL ── */}
+      <section>
+        <SectionTitle>📋 Editorial</SectionTitle>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <KpiCard emoji="⚽" label="Jogos cobertos in loco"           value={gamesInLoco}  color="#10b981"/>
+          <KpiCard emoji="📡" label="Entradas em Direto"               value={nDireto}      color="#ec4899"/>
+          <KpiCard emoji="🎬" label="Gravações de Conteúdo"            value={nGravacao}    color="#f97316"/>
+          <KpiCard emoji="📲" label="Redes Sociais"                    value={nRedes}       color="#a855f7"/>
+          <KpiCard emoji="🤝" label="Ações Comerciais"                 value={nComercial}   color="#06b6d4"/>
+          <KpiCard emoji="📦" label="Total conteúdos produzidos"       value={totalContent} color="#f59e0b"
+            sub="direto + gravação + redes + comercial"/>
+        </div>
+        {(nJogo > 0 || nTreino > 0) && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {nJogo   > 0 && <KpiCard emoji="⚽" label="Coberturas de Jogo"   value={nJogo}   color="#ef4444"/>}
+            {nTreino > 0 && <KpiCard emoji="🏋️" label="Coberturas de Treino" value={nTreino} color="#22c55e"/>}
+          </div>
+        )}
+      </section>
+
       {/* ── RESUMO TOTAL ── */}
       <section>
         <SectionTitle>💰 Resumo Financeiro Global</SectionTitle>
@@ -2509,13 +2660,13 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
 
 // ── APP ──────────────────────────────────────────────────────────────────────
 const TABS = [
-  {id:"dashboard",  label:"Dashboard",          emoji:"🏠"},
-  {id:"schedule",   label:"Calendário de Jogos",emoji:"📅"},
-  {id:"team",       label:"Equipe",             emoji:"👥"},
-  {id:"agenda",     label:"Pautas",             emoji:"📋"},
-  {id:"pitch",      label:"Acreditações",       emoji:"🎫"},
-  {id:"logistics",  label:"Logística",          emoji:"🗺️"},
-  {id:"finance",    label:"Financeiro",         emoji:"📊", adminOnly:true},
+  {id:"home",       label:"🏠 Início",           },
+  {id:"agenda",     label:"📋 Pauta",            },
+  {id:"logistics",  label:"🧳 Logística",        },
+  {id:"pitch",      label:"🎙️ Pitch Positions",},
+  {id:"financeiro", label:"💰 Financeiro",       adminOnly:true},
+  {id:"schedule",   label:"📅 Calendário",       },
+  {id:"team",       label:"👥 Equipas",          },
 ];
 
 function App() {
@@ -2524,12 +2675,18 @@ function App() {
   const [pitchData,     setPitchData]     = useState({});
   const [logistics,     setLogistics]     = useState({flights:[], hotels:[]});
   const [broadcastData, setBroadcastData] = useState({});
-  const [tab,           setTab]           = useState("dashboard");
+  const [tab,           setTab]           = useState("home");
+  const [userRole,      setUserRole]      = useState(null); // null, "admin", "conteudo", "comercial"
   const [isAdmin,       setIsAdmin]       = useState(false);
   const [showLogin,     setShowLogin]     = useState(false);
   const [showChangePw,  setShowChangePw]  = useState(false);
   const [dbLoading,     setDbLoading]     = useState(true);
   const [dbError,       setDbError]       = useState(null);
+
+  // Derived values
+  const isLoggedIn = userRole !== null;
+  const isConteudo = userRole === "conteudo";
+  const isComercial = userRole === "comercial";
 
   // Track last data synced from Firestore to avoid echo-writes
   const lastSynced  = useRef({ team:null, agenda:null, pitch:null, logistics:null, broadcast:null });
@@ -2590,7 +2747,7 @@ function App() {
   useEffect(() => { if (!dbLoading) fsWrite("broadcast", "broadcast", broadcastData); }, [broadcastData, dbLoading]);
 
   function handleLockClick() {
-    if (isAdmin) setIsAdmin(false);
+    if (isLoggedIn) setUserRole(null);
     else setShowLogin(true);
   }
 
@@ -2631,10 +2788,10 @@ function App() {
       {showLogin && (
         <LoginModal
           onClose={()=>setShowLogin(false)}
-          onSuccess={()=>{ setIsAdmin(true); setShowLogin(false); }}
+          onSuccess={(role)=>{ setUserRole(role); setIsAdmin(role==="admin"); setShowLogin(false); }}
         />
       )}
-      {showChangePw && <ChangePwModal onClose={()=>setShowChangePw(false)}/>}
+      {showChangePw && <ChangePwModal onClose={()=>setShowChangePw(false)} userRole={userRole}/>}
 
       {/* Header */}
       <div className="bg-slate-900/95 border-b border-slate-700/50 sticky top-0 z-20 backdrop-blur-sm no-print">
@@ -2647,9 +2804,17 @@ function App() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               {/* Mode badge */}
-              {isAdmin
+              {userRole === "admin"
                 ? <span className="text-xs text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20 font-medium">
                     ✏️ Admin
+                  </span>
+                : userRole === "conteudo"
+                ? <span className="text-xs text-blue-400 bg-blue-400/10 px-2.5 py-1 rounded-full border border-blue-400/20 font-medium">
+                    📝 Conteúdo
+                  </span>
+                : userRole === "comercial"
+                ? <span className="text-xs text-green-400 bg-green-400/10 px-2.5 py-1 rounded-full border border-green-400/20 font-medium">
+                    🤝 Comercial
                   </span>
                 : <span className="text-xs text-slate-400 bg-slate-700/50 px-2.5 py-1 rounded-full border border-slate-600/50">
                     👁 Público
@@ -2685,13 +2850,13 @@ function App() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-5">
-        {tab==="dashboard"  && <Dashboard  team={team}/>}
+        {tab==="home"  && <Home  team={team} agenda={agenda} broadcastData={broadcastData}/>}
+        {tab==="agenda"     && <Agenda     team={team} isAdmin={isAdmin} userRole={userRole} agenda={agenda} setAgenda={setAgenda} pitchData={pitchData} logistics={logistics} broadcastData={broadcastData}/>}
+        {tab==="logistics"  && <Logistics  team={team} isAdmin={isAdmin} logistics={logistics} setLogistics={setLogistics}/>}
+        {tab==="pitch"      && <PitchTab   team={team} isAdmin={isAdmin} pitchData={pitchData} setPitchData={setPitchData}/>}
+        {tab==="financeiro" && isAdmin && <FinanceDashboard team={team} agenda={agenda} pitchData={pitchData} logistics={logistics}/>}
         {tab==="schedule"   && <Schedule   team={team} broadcastData={broadcastData} setBroadcastData={setBroadcastData} isAdmin={isAdmin}/>}
         {tab==="team"       && <TeamTab    team={team} setTeam={setTeam} isAdmin={isAdmin}/>}
-        {tab==="agenda"     && <Agenda     team={team} isAdmin={isAdmin} agenda={agenda} setAgenda={setAgenda} pitchData={pitchData} logistics={logistics} broadcastData={broadcastData}/>}
-        {tab==="pitch"      && <PitchTab   team={team} isAdmin={isAdmin} pitchData={pitchData} setPitchData={setPitchData}/>}
-        {tab==="logistics"  && <Logistics  team={team} isAdmin={isAdmin} logistics={logistics} setLogistics={setLogistics}/>}
-        {tab==="finance" && isAdmin && <FinanceDashboard team={team} agenda={agenda} pitchData={pitchData} logistics={logistics}/>}
       </div>
     </div>
   );
