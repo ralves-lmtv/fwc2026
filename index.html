@@ -2032,7 +2032,12 @@ function loadLogistics() {
 // flights: [{ id, date, flightNo, from, to, depTime, arrTime, price, notes, personIds }]
 // hotels:  [{ id, city, name, checkIn, checkOut, price, notes, personIds }]
 
-const BLANK_FLIGHT_L = {id:null,date:"",flightNo:"",from:"",to:"",depTime:"",arrTime:"",price:0,notes:"",personIds:[]};
+const BLANK_FLIGHT_L = {id:null,date:"",flightNo:"",from:"",to:"",depTime:"",arrTime:"",pricePerPerson:0,notes:"",personIds:[]};
+// Total do voo = pricePerPerson × nº de pessoas (retrocompat: usa price se pricePerPerson ausente)
+function flightCost(f) {
+  if ((f.pricePerPerson||0) > 0) return (f.pricePerPerson||0) * Math.max(1,(f.personIds||[]).length);
+  return f.price || 0;
+}
 const BLANK_HOTEL_L  = {id:null,city:"",name:"",checkIn:"",checkOut:"",price:0,notes:"",personIds:[]};
 
 function logNights(checkIn, checkOut) {
@@ -2077,6 +2082,8 @@ function PersonPicker({ team, personIds, onChange }) {
 function FlightModal({ data, team, isAdmin, onSave, onDelete, onClose }) {
   const [f, setF] = useState({...data});
   const F = (k,v) => setF(p=>({...p,[k]:v}));
+  const nPax       = (f.personIds||[]).length || 1;
+  const totalFlight = (f.pricePerPerson||0) * nPax;
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
       onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -2120,9 +2127,15 @@ function FlightModal({ data, team, isAdmin, onSave, onDelete, onClose }) {
           </div>
           {isAdmin && (
             <div>
-              <label className="text-xs text-amber-400 mb-1 block">💰 Valor total da reserva (EUR) 🔒</label>
-              <input type="number" min="0" value={f.price||""} onChange={e=>F("price",Number(e.target.value))}
+              <label className="text-xs text-amber-400 mb-1 block">💰 Valor por pessoa (EUR) 🔒</label>
+              <input type="number" min="0" value={f.pricePerPerson||""} onChange={e=>F("pricePerPerson",Number(e.target.value))}
                 placeholder="0" className="w-full px-2 py-1.5 bg-slate-700 border border-amber-700/40 rounded-xl text-sm text-amber-300 placeholder-slate-500 outline-none"/>
+              {(f.pricePerPerson||0) > 0 && (
+                <div className="mt-1.5 flex items-center justify-between text-xs px-1">
+                  <span className="text-slate-500">€{f.pricePerPerson} × {nPax} pessoa{nPax!==1?"s":""}</span>
+                  <span className="text-amber-400 font-semibold">= €{totalFlight.toLocaleString("pt-PT")} total</span>
+                </div>
+              )}
             </div>
           )}
           <div>
@@ -2235,7 +2248,7 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
   }
   function deleteHotel(id) { setLogistics(p=>({...p, hotels:hotels.filter(h=>h.id!==id)})); }
 
-  const totalFlights = flights.reduce((s,f)=>s+(f.price||0),0);
+  const totalFlights = flights.reduce((s,f)=>s+flightCost(f),0);
   const totalHotels  = hotels.reduce((s,h)=>s+(h.price||0),0);
   const grandTotal   = totalFlights + totalHotels;
 
@@ -2304,7 +2317,13 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-slate-200">{f.from||"?"} → {f.to||"?"}</span>
                       {f.flightNo&&<span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{f.flightNo}</span>}
-                      {isAdmin&&(f.price||0)>0&&<span className="text-xs text-amber-400 ml-auto font-medium">💰 €{f.price.toLocaleString()}</span>}
+                      {isAdmin&&(f.pricePerPerson||f.price||0)>0&&(
+                        <span className="text-xs text-amber-400 ml-auto font-medium">
+                          💰 {f.pricePerPerson>0
+                            ? `€${f.pricePerPerson}/p · €${flightCost(f).toLocaleString("pt-PT")} total`
+                            : `€${(f.price||0).toLocaleString("pt-PT")}`}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5 flex gap-3 flex-wrap">
                       {f.date&&<span>📅 {fmtDate(f.date)}</span>}
@@ -2481,6 +2500,7 @@ const PER_DIEM_DAILY = 150; // EUR por pessoa por dia (estimativa)
 function FinanceDashboard({ team, agenda, pitchData, logistics }) {
   const flights = logistics.flights || [];
   const hotels  = logistics.hotels  || [];
+  const [showResumo, setShowResumo] = useState(false);
 
   // ── EDITORIAL ──
   const realEntries = agenda.filter(e => e.personId !== "__team__");
@@ -2496,56 +2516,31 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
 
   // ── PITCH POSITIONS (USD) ──
   const inLocoEntries = Object.entries(pitchData).filter(([,v]) => v.inLoco);
-  const STAGE_PT = {
-    "Group Stage":         "Fase de Grupos",
-    "Round of 32":         "Ronda de 32",
-    "Round of 16":         "Ronda de 16",
-    "Quarter-finals":      "Quartos de Final",
-    "Semi-finals":         "Meias-Finais",
-    "Third Place Play-off":"3º/4º Lugar",
-    "Final":               "Final",
-  };
   let totalPitchUSD = 0;
-  const pitchByPhase = {};
-  const pitchByCity  = {};
-
-  inLocoEntries.forEach(([matchId, matchData]) => {
-    const match = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
-    const phase = STAGE_PT[match?.stage] || match?.stage || "Desconhecida";
-    const city  = match?.city || "Desconhecida";
-    let matchCost = 0;
+  inLocoEntries.forEach(([, matchData]) => {
     Object.keys(matchData.positions || {}).forEach(posId => {
       const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
-      if (pos) matchCost += pos.price;
+      if (pos) totalPitchUSD += pos.price;
     });
-    totalPitchUSD       += matchCost;
-    pitchByPhase[phase]  = (pitchByPhase[phase] || 0) + matchCost;
-    pitchByCity[city]    = (pitchByCity[city]   || 0) + matchCost;
   });
 
   // ── LOGISTICS (EUR) ──
   const totalHotelEUR   = hotels.reduce((s, h) => s + (h.price || 0), 0);
-  const totalFlightsEUR = flights.reduce((s, f) => s + (f.price || 0), 0);
+  const totalFlightsEUR = flights.reduce((s, f) => s + flightCost(f), 0);
   let totalPersonNights = 0;
   hotels.forEach(h => {
     const nights  = logNights(h.checkIn, h.checkOut);
     const persons = (h.personIds || []).length || 1;
     totalPersonNights += nights * persons;
   });
-  const totalPerDiemEUR    = totalPersonNights * PER_DIEM_DAILY;
-  const totalLogisticsEUR  = totalHotelEUR + totalFlightsEUR + totalPerDiemEUR;
-
-  const hotelByCity = {};
-  hotels.forEach(h => {
-    const c = h.city || "Desconhecida";
-    hotelByCity[c] = (hotelByCity[c] || 0) + (h.price || 0);
-  });
+  const totalPerDiemEUR   = totalPersonNights * PER_DIEM_DAILY;
+  const totalLogisticsEUR = totalHotelEUR + totalFlightsEUR + totalPerDiemEUR;
 
   // Per-person cost (proportional share of flights + hotels)
   const personCosts = {};
   team.forEach(p => { personCosts[p.id] = { hotel: 0, flight: 0 }; });
   flights.forEach(f => {
-    const share = (f.price || 0) / Math.max(1, (f.personIds || []).length);
+    const share = f.pricePerPerson > 0 ? (f.pricePerPerson||0) : (f.price||0) / Math.max(1,(f.personIds||[]).length);
     (f.personIds || []).forEach(pid => { if (personCosts[pid]) personCosts[pid].flight += share; });
   });
   hotels.forEach(h => {
@@ -2556,6 +2551,94 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
     const c = personCosts[p.id] || { hotel:0, flight:0 };
     return c.hotel + c.flight;
   }));
+
+  // ── PHASE RANGES (computed dynamically from FIFA_MATCHES) ──
+  const PHASE_DEFS = [
+    { id:"pre_group", label:"Pré-Copa + Fase de Grupos", stages:["Group Stage"],                       fixedStart:"2026-06-08" },
+    { id:"r16",       label:"16 Avos",                   stages:["16th Finals"] },
+    { id:"r8",        label:"Oitavas de Final",          stages:["8th Finals"] },
+    { id:"qf",        label:"Quartas de Final",          stages:["Quarter-finals"] },
+    { id:"sf",        label:"Semifinais",                stages:["Semi-finals","3rd Place Final"] },
+    { id:"final",     label:"Final",                     stages:["Final"] },
+  ];
+  const phaseRanges = {};
+  PHASE_DEFS.forEach((ph, i) => {
+    const dates = FIFA_MATCHES.filter(m => ph.stages.includes(m.stage)).map(m => m.date).sort();
+    if (!dates.length) return;
+    const endDate = dates[dates.length - 1];
+    let startDate = ph.fixedStart || null;
+    if (!startDate && i > 0) {
+      const prevEnd = phaseRanges[PHASE_DEFS[i-1].id]?.end;
+      if (prevEnd) {
+        const d = new Date(prevEnd + "T12:00:00Z");
+        d.setDate(d.getDate() + 1);
+        startDate = d.toISOString().slice(0, 10);
+      }
+    }
+    if (!startDate) startDate = dates[0];
+    phaseRanges[ph.id] = { start: startDate, end: endDate, label: ph.label };
+  });
+
+  function getPhaseForDate(date) {
+    if (!date) return null;
+    for (const ph of PHASE_DEFS) {
+      const r = phaseRanges[ph.id];
+      if (r && date >= r.start && date <= r.end) return ph.id;
+    }
+    return null;
+  }
+
+  function hotelNightsInPhase(hotel, phId) {
+    const r = phaseRanges[phId];
+    if (!r || !hotel.checkIn || !hotel.checkOut) return 0;
+    const s = hotel.checkIn  > r.start ? hotel.checkIn  : r.start;
+    const e = hotel.checkOut < r.end   ? hotel.checkOut : r.end;
+    if (s >= e) return 0;
+    const d1 = new Date(s + "T12:00:00Z"), d2 = new Date(e + "T12:00:00Z");
+    return Math.max(0, Math.round((d2 - d1) / 86400000));
+  }
+
+  const phaseCosts = {};
+  PHASE_DEFS.forEach(ph => { phaseCosts[ph.id] = { flight:0, hotel:0, perDiem:0, pitch:0 }; });
+
+  flights.forEach(f => {
+    const phId = getPhaseForDate(f.date);
+    if (phId) phaseCosts[phId].flight += flightCost(f);
+  });
+
+  hotels.forEach(h => {
+    const totalNights = logNights(h.checkIn, h.checkOut) || 1;
+    PHASE_DEFS.forEach(ph => {
+      const nights  = hotelNightsInPhase(h, ph.id);
+      if (!nights) return;
+      const persons = (h.personIds || []).length || 1;
+      phaseCosts[ph.id].hotel   += (h.price || 0) * (nights / totalNights);
+      phaseCosts[ph.id].perDiem += nights * persons * PER_DIEM_DAILY;
+    });
+  });
+
+  inLocoEntries.forEach(([matchId, matchData]) => {
+    const match = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
+    if (!match) return;
+    const phId = getPhaseForDate(match.date);
+    if (!phId) return;
+    Object.keys(matchData.positions || {}).forEach(posId => {
+      const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+      if (pos) phaseCosts[phId].pitch += pos.price;
+    });
+  });
+
+  // ── CITY COSTS (excl. pitch positions) ──
+  const cityCosts = {};
+  hotels.forEach(h => {
+    const c = h.city || "Desconhecida";
+    if (!cityCosts[c]) cityCosts[c] = { hotel:0, perDiem:0 };
+    const nights  = logNights(h.checkIn, h.checkOut);
+    const persons = (h.personIds || []).length || 1;
+    cityCosts[c].hotel   += (h.price || 0);
+    cityCosts[c].perDiem += nights * persons * PER_DIEM_DAILY;
+  });
+  const maxCityTotal = Math.max(1, ...Object.values(cityCosts).map(c => c.hotel + c.perDiem));
 
   // ── HELPERS ──
   const fmtUSD = n => "$" + Math.round(n).toLocaleString("pt-PT");
@@ -2611,77 +2694,37 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
         </div>
       </div>
 
-      {/* ── ACREDITAÇÕES / PITCH POSITIONS (USD) ── */}
+      {/* ── PITCH POSITIONS (USD) ── */}
       <section>
-        <SectionTitle total={fmtUSD(totalPitchUSD)}>🎫 Acreditações — Pitch Positions (USD)</SectionTitle>
-
+        <SectionTitle total={fmtUSD(totalPitchUSD)}>🎙️ Pitch Positions (USD)</SectionTitle>
         {inLocoEntries.length === 0 ? (
           <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
             Nenhum jogo in loco selecionado ainda na aba Pitch Positions.
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Game list */}
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-              <div className="text-xs text-slate-400 mb-3 font-medium">Jogos selecionados &amp; custo</div>
-              <div className="space-y-2">
-                {inLocoEntries.map(([matchId, matchData]) => {
-                  const match    = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
-                  let matchCost  = 0;
-                  const posCount = Object.keys(matchData.positions || {}).length;
-                  Object.keys(matchData.positions || {}).forEach(posId => {
-                    const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
-                    if (pos) matchCost += pos.price;
-                  });
-                  return (
-                    <div key={matchId} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/50 last:border-0">
-                      <div>
-                        <div className="text-slate-200">{match ? `${match.home} vs ${match.away}` : `Jogo #${matchId}`}</div>
-                        <div className="text-slate-500">{match?.date} · {match?.city} · {STAGE_PT[match?.stage]||match?.stage}</div>
-                        <div className="text-slate-500">{posCount} posição{posCount!==1?"ões":""} contratada{posCount!==1?"s":""}</div>
-                      </div>
-                      <span className="text-emerald-400 font-bold ml-3 shrink-0">{fmtUSD(matchCost)}</span>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+            <div className="text-xs text-slate-400 mb-3 font-medium">Jogos selecionados &amp; custo</div>
+            <div className="space-y-2">
+              {inLocoEntries.map(([matchId, matchData]) => {
+                const match    = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
+                let matchCost  = 0;
+                const posCount = Object.keys(matchData.positions || {}).length;
+                Object.keys(matchData.positions || {}).forEach(posId => {
+                  const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+                  if (pos) matchCost += pos.price;
+                });
+                return (
+                  <div key={matchId} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/50 last:border-0">
+                    <div>
+                      <div className="text-slate-200">{match ? `${tTeam(match.home)} vs ${tTeam(match.away)}` : `Jogo #${matchId}`}</div>
+                      <div className="text-slate-500">{match?.date} · {match?.city} · {tStage(match?.stage)}</div>
+                      <div className="text-slate-500">{posCount} posição{posCount!==1?"ões":""} contratada{posCount!==1?"s":""}</div>
                     </div>
-                  );
-                })}
-              </div>
+                    <span className="text-emerald-400 font-bold ml-3 shrink-0">{fmtUSD(matchCost)}</span>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* By phase */}
-            {Object.keys(pitchByPhase).length > 1 && (
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-                <div className="text-xs text-slate-400 mb-3 font-medium">Custo por Fase</div>
-                <div className="space-y-2.5">
-                  {Object.entries(pitchByPhase).sort((a,b) => b[1]-a[1]).map(([phase, cost]) => (
-                    <div key={phase}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-slate-300">{phase}</span>
-                        <span className="text-emerald-400 font-medium">{fmtUSD(cost)}</span>
-                      </div>
-                      <Bar value={cost} max={totalPitchUSD} color="#10b981"/>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* By city */}
-            {Object.keys(pitchByCity).length > 0 && (
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-                <div className="text-xs text-slate-400 mb-3 font-medium">Custo por Cidade (USD)</div>
-                <div className="space-y-2.5">
-                  {Object.entries(pitchByCity).sort((a,b) => b[1]-a[1]).map(([city, cost]) => (
-                    <div key={city}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-slate-300">📍 {city}</span>
-                        <span className="text-emerald-400 font-medium">{fmtUSD(cost)}</span>
-                      </div>
-                      <Bar value={cost} max={Math.max(...Object.values(pitchByCity))} color="#3b82f6"/>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </section>
@@ -2689,7 +2732,6 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
       {/* ── LOGÍSTICA (EUR) ── */}
       <section>
         <SectionTitle total={fmtEUR(totalLogisticsEUR)}>🗺️ Logística (EUR)</SectionTitle>
-
         <div className="grid grid-cols-3 gap-3 mb-3">
           <KpiCard emoji="✈️" label="Viagens"  value={fmtEUR(totalFlightsEUR)} color="#3b82f6"
             sub={`${flights.length} voo${flights.length!==1?"s":""}`}/>
@@ -2698,8 +2740,6 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
           <KpiCard emoji="🍽️" label="Per Diem" value={fmtEUR(totalPerDiemEUR)} color="#10b981"
             sub={`${totalPersonNights} p·noite · €${PER_DIEM_DAILY}/dia`}/>
         </div>
-
-        {/* Budget composition */}
         {totalLogisticsEUR > 0 && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
             <div className="text-xs text-slate-400 mb-3 font-medium">Composição do orçamento logístico</div>
@@ -2725,26 +2765,6 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
             </div>
           </div>
         )}
-
-        {/* Hotel by city */}
-        {Object.keys(hotelByCity).length > 0 && (
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
-            <div className="text-xs text-slate-400 mb-3 font-medium">Custo de Hotel por Cidade</div>
-            <div className="space-y-2.5">
-              {Object.entries(hotelByCity).sort((a,b) => b[1]-a[1]).map(([city, cost]) => (
-                <div key={city}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-300">📍 {city}</span>
-                    <span className="text-amber-400 font-medium">{fmtEUR(cost)}</span>
-                  </div>
-                  <Bar value={cost} max={Math.max(...Object.values(hotelByCity))} color="#f59e0b"/>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Per person */}
         {team.length > 0 && (totalFlightsEUR + totalHotelEUR) > 0 && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
             <div className="text-xs text-slate-400 mb-3 font-medium">Custo por Pessoa (viagens + hotel, proporcional)</div>
@@ -2773,13 +2793,96 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
             </div>
           </div>
         )}
-
         {flights.length === 0 && hotels.length === 0 && (
           <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
             Nenhuma viagem ou hotel registado ainda na aba Logística.
           </div>
         )}
       </section>
+
+      {/* ── CUSTO POR FASE ── */}
+      <section>
+        <SectionTitle>📅 Custo por Fase</SectionTitle>
+        <div className="space-y-2">
+          {PHASE_DEFS.filter(ph => {
+            const c = phaseCosts[ph.id];
+            return c && (c.flight + c.hotel + c.perDiem + c.pitch) > 0;
+          }).map(ph => {
+            const c = phaseCosts[ph.id];
+            const eurTotal = c.flight + c.hotel + c.perDiem;
+            const r = phaseRanges[ph.id];
+            return (
+              <div key={ph.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-200">{ph.label}</div>
+                    {r && <div className="text-xs text-slate-500 mt-0.5">{r.start} → {r.end}</div>}
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    {eurTotal > 0 && <div className="text-sm font-bold text-white">{fmtEUR(eurTotal)}</div>}
+                    {c.pitch  > 0 && <div className="text-xs font-semibold text-violet-400">{fmtUSD(c.pitch)} USD</div>}
+                  </div>
+                </div>
+                <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                  {[
+                    {label:"✈️ Aéreo",      value:c.flight,  fmt:fmtEUR, color:"#3b82f6"},
+                    {label:"🏨 Hospedagem", value:c.hotel,   fmt:fmtEUR, color:"#f59e0b"},
+                    {label:"🍽️ Per Diem",   value:c.perDiem, fmt:fmtEUR, color:"#10b981"},
+                    {label:"🎙️ Pitch Pos.", value:c.pitch,   fmt:fmtUSD, color:"#a78bfa"},
+                  ].filter(x => x.value > 0).map(x => (
+                    <div key={x.label} className="flex justify-between text-xs">
+                      <span className="text-slate-400">{x.label}</span>
+                      <span style={{color:x.color}} className="font-medium">{x.fmt(x.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {PHASE_DEFS.every(ph => { const c = phaseCosts[ph.id]; return !c || (c.flight+c.hotel+c.perDiem+c.pitch)===0; }) && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
+              Sem dados financeiros ainda. Adicione voos, hotéis ou selecione jogos in loco.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── CUSTO POR CIDADE (excl. pitch positions) ── */}
+      {Object.keys(cityCosts).length > 0 && (
+        <section>
+          <SectionTitle>📍 Custo por Cidade (excl. Pitch Positions)</SectionTitle>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+            <div className="space-y-3">
+              {Object.entries(cityCosts).sort((a,b) => (b[1].hotel+b[1].perDiem)-(a[1].hotel+a[1].perDiem)).map(([city, c]) => {
+                const total = c.hotel + c.perDiem;
+                const maxH  = maxCityTotal > 0 ? Math.min(100, (c.hotel  / maxCityTotal) * 100) : 0;
+                const maxP  = maxCityTotal > 0 ? Math.min(100, (c.perDiem/ maxCityTotal) * 100) : 0;
+                return (
+                  <div key={city}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-300">📍 {city}</span>
+                      <span className="text-white font-medium">{fmtEUR(total)}</span>
+                    </div>
+                    <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden flex">
+                      <div style={{width:`${maxH}%`, background:"#f59e0b"}} className="h-full"/>
+                      <div style={{width:`${maxP}%`, background:"#10b981"}} className="h-full"/>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500 mt-0.5">
+                      <span>🏨 {fmtEUR(c.hotel)}</span>
+                      <span>🍽️ {fmtEUR(c.perDiem)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-4 text-xs text-slate-600 mt-3 pt-2 border-t border-slate-700/50">
+              <span><span className="text-amber-400 mr-1">■</span>Hotel</span>
+              <span><span className="text-emerald-400 mr-1">■</span>Per Diem</span>
+              <span>· Voos não atribuídos por cidade</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── EDITORIAL ── */}
       <section>
@@ -2801,42 +2904,56 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
         )}
       </section>
 
-      {/* ── RESUMO TOTAL ── */}
+      {/* ── RESUMO FINANCEIRO GLOBAL (collapsible) ── */}
       <section>
-        <SectionTitle>💰 Resumo Financeiro Global</SectionTitle>
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 rounded-2xl p-5 space-y-3">
-          <div className="flex justify-between items-center py-1">
-            <span className="text-slate-300 text-sm">🎫 Acreditações (USD)</span>
-            <span className="text-emerald-400 font-bold">{fmtUSD(totalPitchUSD)}</span>
+        <button onClick={() => setShowResumo(v => !v)}
+          className="w-full flex items-center justify-between bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 rounded-2xl px-5 py-4 text-left transition-all hover:border-amber-500/50">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💰</span>
+            <span className="text-sm font-semibold text-slate-200">Resumo Financeiro Global</span>
           </div>
-          <div className="flex justify-between items-center py-1">
-            <span className="text-slate-300 text-sm">✈️ Viagens</span>
-            <span className="text-blue-400 font-bold">{fmtEUR(totalFlightsEUR)}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-amber-400 font-bold text-sm">
+              {fmtEUR(totalLogisticsEUR)}{totalPitchUSD > 0 ? ` + ${fmtUSD(totalPitchUSD)}` : ""}
+            </span>
+            <span className="text-slate-400 text-sm">{showResumo ? "▲" : "▼"}</span>
           </div>
-          <div className="flex justify-between items-center py-1">
-            <span className="text-slate-300 text-sm">🏨 Hotéis</span>
-            <span className="text-amber-400 font-bold">{fmtEUR(totalHotelEUR)}</span>
-          </div>
-          <div className="flex justify-between items-center py-1">
-            <span className="text-slate-300 text-sm">🍽️ Per Diem estimado</span>
-            <span className="text-green-400 font-bold">{fmtEUR(totalPerDiemEUR)}</span>
-          </div>
-          <div className="border-t border-slate-600 pt-3 flex justify-between items-center">
-            <div>
-              <div className="text-slate-200 font-semibold">🧮 Total Logística</div>
-              <div className="text-xs text-slate-500">viagens + hotel + per diem</div>
+        </button>
+        {showResumo && (
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 border-t-0 rounded-b-2xl px-5 pb-5 pt-4 space-y-3 -mt-1">
+            <div className="flex justify-between items-center py-1 border-b border-slate-700/50">
+              <span className="text-slate-300 text-sm">🎙️ Pitch Positions (USD)</span>
+              <span className="text-violet-400 font-bold">{fmtUSD(totalPitchUSD)}</span>
             </div>
-            <span className="text-white font-bold text-xl">{fmtEUR(totalLogisticsEUR)}</span>
-          </div>
-          {totalPitchUSD > 0 && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2 text-xs text-emerald-300/80">
-              ⚠️ As acreditações ({fmtUSD(totalPitchUSD)} USD) estão em dólares e não incluídas no total EUR acima.
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">✈️ Viagens</span>
+              <span className="text-blue-400 font-bold">{fmtEUR(totalFlightsEUR)}</span>
             </div>
-          )}
-          <div className="text-xs text-slate-600 pt-1">
-            * Per diem calculado automaticamente a €{PER_DIEM_DAILY}/pessoa/dia com base nas noites de hotel.
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">🏨 Hotéis</span>
+              <span className="text-amber-400 font-bold">{fmtEUR(totalHotelEUR)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">🍽️ Per Diem estimado</span>
+              <span className="text-green-400 font-bold">{fmtEUR(totalPerDiemEUR)}</span>
+            </div>
+            <div className="border-t border-slate-600 pt-3 flex justify-between items-center">
+              <div>
+                <div className="text-slate-200 font-semibold">🧮 Total Logística (EUR)</div>
+                <div className="text-xs text-slate-500">viagens + hotel + per diem</div>
+              </div>
+              <span className="text-white font-bold text-xl">{fmtEUR(totalLogisticsEUR)}</span>
+            </div>
+            {totalPitchUSD > 0 && (
+              <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl px-3 py-2 text-xs text-violet-300/80">
+                ⚠️ Pitch Positions ({fmtUSD(totalPitchUSD)} USD) em dólares — não incluídas no total EUR acima.
+              </div>
+            )}
+            <div className="text-xs text-slate-600 pt-1">
+              * Per diem calculado automaticamente a €{PER_DIEM_DAILY}/pessoa/dia com base nas noites de hotel.
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
     </div>
