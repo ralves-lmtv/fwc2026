@@ -1967,6 +1967,52 @@ function PitchTab({ team, isAdmin, pitchData, setPitchData }) {
                       {isAdmin && <span className="text-amber-400 font-semibold">${cost.toLocaleString()}</span>}
                     </div>
                   )}
+
+                  {/* Escala do Jogo */}
+                  {(()=>{
+                    const personMap = {};
+                    Object.entries(md.positions).forEach(([posId,pd])=>{
+                      const cat = PITCH_POSITIONS_CATALOG.find(p=>p.id===posId);
+                      if (!cat) return;
+                      (pd.personIds||[]).forEach(pid=>{
+                        if (!personMap[pid]) personMap[pid]=[];
+                        personMap[pid].push({posId, cat, time:pd.time||""});
+                      });
+                    });
+                    const assigned = team.filter(p=>personMap[p.id]);
+                    if (assigned.length===0) return null;
+                    return (
+                      <div className="pt-3 border-t border-slate-700/40">
+                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">📋 Escala do Jogo</div>
+                        <div className="space-y-1.5">
+                          {assigned.map(p=>{
+                            const slots = (personMap[p.id]||[]).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+                            return (
+                              <div key={p.id} style={{borderColor:p.color+"55"}} className="rounded-xl border bg-slate-800/40 px-3 py-2">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:p.color}}/>
+                                  <span className="text-xs font-semibold text-slate-200">{p.name}</span>
+                                  {p.role&&<span className="text-xs text-slate-500">· {p.role}</span>}
+                                  <span className="ml-auto text-xs text-slate-500">{slots.length} pos.</span>
+                                </div>
+                                <div className="space-y-0.5 pl-4">
+                                  {slots.map(({posId,cat,time})=>(
+                                    <div key={posId} className="flex items-center gap-2 text-xs">
+                                      <span className="shrink-0">{cat.emoji}</span>
+                                      <span className="flex-1 text-slate-300">{cat.label}{cat.note?<span className="text-slate-500"> · {cat.note}</span>:null}</span>
+                                      {time
+                                        ? <span className="text-blue-400 shrink-0 font-mono">{time}</span>
+                                        : <span className="text-slate-600 shrink-0 text-xs">sem hora</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
