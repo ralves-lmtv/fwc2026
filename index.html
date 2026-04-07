@@ -24,7 +24,3378 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
+  firebase.initializeApp({<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mundial 2026 — Pauta & Logística</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { background: #0f172a; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; color: black !important; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<!-- Firebase compat SDK (no build step needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
   firebase.initializeApp({
+    apiKey:            "AIzaSyDVPbz2kK8NT1GR4X0TcpCaLjKwfdyJCAA",
+    authDomain:        "livemode-mundial.firebaseapp.com",
+    projectId:         "livemode-mundial",
+    storageBucket:     "livemode-mundial.firebasestorage.app",
+    messagingSenderId: "669716079972",
+    appId:             "1:669716079972:web:62495f9cae29479ed24671"
+  });
+  const db = firebase.firestore();
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── FIFA World Cup 2026 Schedule — 104 matches (source: FIFA API) ────────────
+const FIFA_MATCHES = [
+  {id:1,date:"2026-06-11",time:"13:00",stage:"Group Stage",venue:"Estadio Banorte",city:"Mexico City",home:"Mexico",away:"South Africa"},
+  {id:2,date:"2026-06-11",time:"20:00",stage:"Group Stage",venue:"Estadio AKRON",city:"Guadalajara",home:"Korea Republic",away:"Czech Republic"},
+  {id:3,date:"2026-06-12",time:"15:00",stage:"Group Stage",venue:"BMO Field",city:"Toronto",home:"Canada",away:"Bosnia and Herzegovina"},
+  {id:4,date:"2026-06-12",time:"18:00",stage:"Group Stage",venue:"SoFi Stadium",city:"Los Angeles",home:"United States",away:"Paraguay"},
+  {id:5,date:"2026-06-13",time:"12:00",stage:"Group Stage",venue:"Levi's Stadium",city:"San Francisco",home:"Qatar",away:"Switzerland"},
+  {id:6,date:"2026-06-13",time:"18:00",stage:"Group Stage",venue:"MetLife Stadium",city:"New York/NJ",home:"Brazil",away:"Morocco"},
+  {id:7,date:"2026-06-13",time:"21:00",stage:"Group Stage",venue:"BC Place",city:"Vancouver",home:"Australia",away:"Türkiye"},
+  {id:8,date:"2026-06-13",time:"21:00",stage:"Group Stage",venue:"Gillette Stadium",city:"Boston",home:"Haiti",away:"Scotland"},
+  {id:9,date:"2026-06-14",time:"12:00",stage:"Group Stage",venue:"NRG Stadium",city:"Houston",home:"Germany",away:"Curaçao"},
+  {id:10,date:"2026-06-14",time:"15:00",stage:"Group Stage",venue:"AT&T Stadium",city:"Dallas",home:"Netherlands",away:"Japan"},
+  {id:11,date:"2026-06-14",time:"19:00",stage:"Group Stage",venue:"Lincoln Financial Field",city:"Philadelphia",home:"Côte d'Ivoire",away:"Ecuador"},
+  {id:12,date:"2026-06-14",time:"20:00",stage:"Group Stage",venue:"Estadio BBVA",city:"Monterrey",home:"Sweden",away:"Tunisia"},
+  {id:13,date:"2026-06-15",time:"12:00",stage:"Group Stage",venue:"Lumen Field",city:"Seattle",home:"Belgium",away:"Egypt"},
+  {id:14,date:"2026-06-15",time:"12:00",stage:"Group Stage",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Spain",away:"Cabo Verde"},
+  {id:15,date:"2026-06-15",time:"18:00",stage:"Group Stage",venue:"SoFi Stadium",city:"Los Angeles",home:"IR Iran",away:"New Zealand"},
+  {id:16,date:"2026-06-15",time:"18:00",stage:"Group Stage",venue:"Hard Rock Stadium",city:"Miami",home:"Saudi Arabia",away:"Uruguay"},
+  {id:17,date:"2026-06-16",time:"15:00",stage:"Group Stage",venue:"MetLife Stadium",city:"New York/NJ",home:"France",away:"Senegal"},
+  {id:18,date:"2026-06-16",time:"18:00",stage:"Group Stage",venue:"Gillette Stadium",city:"Boston",home:"Iraq",away:"Norway"},
+  {id:19,date:"2026-06-16",time:"20:00",stage:"Group Stage",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"Argentina",away:"Algeria"},
+  {id:20,date:"2026-06-16",time:"21:00",stage:"Group Stage",venue:"Levi's Stadium",city:"San Francisco",home:"Austria",away:"Jordan"},
+  {id:21,date:"2026-06-17",time:"12:00",stage:"Group Stage",venue:"NRG Stadium",city:"Houston",home:"Portugal",away:"DR Congo"},
+  {id:22,date:"2026-06-17",time:"15:00",stage:"Group Stage",venue:"AT&T Stadium",city:"Dallas",home:"England",away:"Croatia"},
+  {id:23,date:"2026-06-17",time:"19:00",stage:"Group Stage",venue:"BMO Field",city:"Toronto",home:"Ghana",away:"Panama"},
+  {id:24,date:"2026-06-17",time:"20:00",stage:"Group Stage",venue:"Estadio Banorte",city:"Mexico City",home:"Uzbekistan",away:"Colombia"},
+  {id:25,date:"2026-06-18",time:"12:00",stage:"Group Stage",venue:"SoFi Stadium",city:"Los Angeles",home:"Switzerland",away:"Bosnia and Herzegovina"},
+  {id:26,date:"2026-06-18",time:"12:00",stage:"Group Stage",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Czech Republic",away:"South Africa"},
+  {id:27,date:"2026-06-18",time:"15:00",stage:"Group Stage",venue:"BC Place",city:"Vancouver",home:"Canada",away:"Qatar"},
+  {id:28,date:"2026-06-18",time:"19:00",stage:"Group Stage",venue:"Estadio AKRON",city:"Guadalajara",home:"Mexico",away:"Korea Republic"},
+  {id:29,date:"2026-06-19",time:"12:00",stage:"Group Stage",venue:"Lumen Field",city:"Seattle",home:"United States",away:"Australia"},
+  {id:30,date:"2026-06-19",time:"18:00",stage:"Group Stage",venue:"Gillette Stadium",city:"Boston",home:"Scotland",away:"Morocco"},
+  {id:31,date:"2026-06-19",time:"20:00",stage:"Group Stage",venue:"Levi's Stadium",city:"San Francisco",home:"Türkiye",away:"Paraguay"},
+  {id:32,date:"2026-06-19",time:"20:30",stage:"Group Stage",venue:"Lincoln Financial Field",city:"Philadelphia",home:"Brazil",away:"Haiti"},
+  {id:33,date:"2026-06-20",time:"12:00",stage:"Group Stage",venue:"NRG Stadium",city:"Houston",home:"Netherlands",away:"Sweden"},
+  {id:34,date:"2026-06-20",time:"16:00",stage:"Group Stage",venue:"BMO Field",city:"Toronto",home:"Germany",away:"Côte d'Ivoire"},
+  {id:35,date:"2026-06-20",time:"19:00",stage:"Group Stage",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"Ecuador",away:"Curaçao"},
+  {id:36,date:"2026-06-20",time:"22:00",stage:"Group Stage",venue:"Estadio BBVA",city:"Monterrey",home:"Tunisia",away:"Japan"},
+  {id:37,date:"2026-06-21",time:"12:00",stage:"Group Stage",venue:"SoFi Stadium",city:"Los Angeles",home:"Belgium",away:"IR Iran"},
+  {id:38,date:"2026-06-21",time:"12:00",stage:"Group Stage",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Spain",away:"Saudi Arabia"},
+  {id:39,date:"2026-06-21",time:"18:00",stage:"Group Stage",venue:"BC Place",city:"Vancouver",home:"New Zealand",away:"Egypt"},
+  {id:40,date:"2026-06-21",time:"18:00",stage:"Group Stage",venue:"Hard Rock Stadium",city:"Miami",home:"Uruguay",away:"Cabo Verde"},
+  {id:41,date:"2026-06-22",time:"12:00",stage:"Group Stage",venue:"AT&T Stadium",city:"Dallas",home:"Argentina",away:"Austria"},
+  {id:42,date:"2026-06-22",time:"17:00",stage:"Group Stage",venue:"Lincoln Financial Field",city:"Philadelphia",home:"France",away:"Iraq"},
+  {id:43,date:"2026-06-22",time:"20:00",stage:"Group Stage",venue:"Levi's Stadium",city:"San Francisco",home:"Jordan",away:"Algeria"},
+  {id:44,date:"2026-06-22",time:"20:00",stage:"Group Stage",venue:"MetLife Stadium",city:"New York/NJ",home:"Norway",away:"Senegal"},
+  {id:45,date:"2026-06-23",time:"12:00",stage:"Group Stage",venue:"NRG Stadium",city:"Houston",home:"Portugal",away:"Uzbekistan"},
+  {id:46,date:"2026-06-23",time:"16:00",stage:"Group Stage",venue:"Gillette Stadium",city:"Boston",home:"England",away:"Ghana"},
+  {id:47,date:"2026-06-23",time:"19:00",stage:"Group Stage",venue:"BMO Field",city:"Toronto",home:"Panama",away:"Croatia"},
+  {id:48,date:"2026-06-23",time:"20:00",stage:"Group Stage",venue:"Estadio AKRON",city:"Guadalajara",home:"Colombia",away:"DR Congo"},
+  {id:49,date:"2026-06-24",time:"12:00",stage:"Group Stage",venue:"Lumen Field",city:"Seattle",home:"Bosnia and Herzegovina",away:"Qatar"},
+  {id:50,date:"2026-06-24",time:"12:00",stage:"Group Stage",venue:"BC Place",city:"Vancouver",home:"Switzerland",away:"Canada"},
+  {id:51,date:"2026-06-24",time:"18:00",stage:"Group Stage",venue:"Hard Rock Stadium",city:"Miami",home:"Scotland",away:"Brazil"},
+  {id:52,date:"2026-06-24",time:"18:00",stage:"Group Stage",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Morocco",away:"Haiti"},
+  {id:53,date:"2026-06-24",time:"19:00",stage:"Group Stage",venue:"Estadio BBVA",city:"Monterrey",home:"South Africa",away:"Korea Republic"},
+  {id:54,date:"2026-06-24",time:"19:00",stage:"Group Stage",venue:"Estadio Banorte",city:"Mexico City",home:"Czech Republic",away:"Mexico"},
+  {id:55,date:"2026-06-25",time:"16:00",stage:"Group Stage",venue:"Lincoln Financial Field",city:"Philadelphia",home:"Curaçao",away:"Côte d'Ivoire"},
+  {id:56,date:"2026-06-25",time:"16:00",stage:"Group Stage",venue:"MetLife Stadium",city:"New York/NJ",home:"Ecuador",away:"Germany"},
+  {id:57,date:"2026-06-25",time:"18:00",stage:"Group Stage",venue:"AT&T Stadium",city:"Dallas",home:"Japan",away:"Sweden"},
+  {id:58,date:"2026-06-25",time:"18:00",stage:"Group Stage",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"Tunisia",away:"Netherlands"},
+  {id:59,date:"2026-06-25",time:"19:00",stage:"Group Stage",venue:"Levi's Stadium",city:"San Francisco",home:"Paraguay",away:"Australia"},
+  {id:60,date:"2026-06-25",time:"19:00",stage:"Group Stage",venue:"SoFi Stadium",city:"Los Angeles",home:"Türkiye",away:"United States"},
+  {id:61,date:"2026-06-26",time:"15:00",stage:"Group Stage",venue:"BMO Field",city:"Toronto",home:"Senegal",away:"Iraq"},
+  {id:62,date:"2026-06-26",time:"15:00",stage:"Group Stage",venue:"Gillette Stadium",city:"Boston",home:"Norway",away:"France"},
+  {id:63,date:"2026-06-26",time:"18:00",stage:"Group Stage",venue:"Estadio AKRON",city:"Guadalajara",home:"Uruguay",away:"Spain"},
+  {id:64,date:"2026-06-26",time:"19:00",stage:"Group Stage",venue:"NRG Stadium",city:"Houston",home:"Cabo Verde",away:"Saudi Arabia"},
+  {id:65,date:"2026-06-26",time:"20:00",stage:"Group Stage",venue:"BC Place",city:"Vancouver",home:"New Zealand",away:"Belgium"},
+  {id:66,date:"2026-06-26",time:"20:00",stage:"Group Stage",venue:"Lumen Field",city:"Seattle",home:"Egypt",away:"IR Iran"},
+  {id:67,date:"2026-06-27",time:"17:00",stage:"Group Stage",venue:"Lincoln Financial Field",city:"Philadelphia",home:"Croatia",away:"Ghana"},
+  {id:68,date:"2026-06-27",time:"17:00",stage:"Group Stage",venue:"MetLife Stadium",city:"New York/NJ",home:"Panama",away:"England"},
+  {id:69,date:"2026-06-27",time:"19:30",stage:"Group Stage",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"DR Congo",away:"Uzbekistan"},
+  {id:70,date:"2026-06-27",time:"19:30",stage:"Group Stage",venue:"Hard Rock Stadium",city:"Miami",home:"Colombia",away:"Portugal"},
+  {id:71,date:"2026-06-27",time:"21:00",stage:"Group Stage",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"Algeria",away:"Austria"},
+  {id:72,date:"2026-06-27",time:"21:00",stage:"Group Stage",venue:"AT&T Stadium",city:"Dallas",home:"Jordan",away:"Argentina"},
+  {id:73,date:"2026-06-28",time:"12:00",stage:"16th Finals",venue:"SoFi Stadium",city:"Los Angeles",home:"2nd Group A",away:"2nd Group B"},
+  {id:74,date:"2026-06-29",time:"12:00",stage:"16th Finals",venue:"NRG Stadium",city:"Houston",home:"1st Group C",away:"2nd Group F"},
+  {id:75,date:"2026-06-29",time:"16:30",stage:"16th Finals",venue:"Gillette Stadium",city:"Boston",home:"1st Group E",away:"3rd Group A/B/C/D/F"},
+  {id:76,date:"2026-06-29",time:"19:00",stage:"16th Finals",venue:"Estadio BBVA",city:"Monterrey",home:"1st Group F",away:"2nd Group C"},
+  {id:77,date:"2026-06-30",time:"12:00",stage:"16th Finals",venue:"AT&T Stadium",city:"Dallas",home:"2nd Group E",away:"2nd Group I"},
+  {id:78,date:"2026-06-30",time:"17:00",stage:"16th Finals",venue:"MetLife Stadium",city:"New York/NJ",home:"1st Group I",away:"3rd Group C/D/F/G/H"},
+  {id:79,date:"2026-06-30",time:"19:00",stage:"16th Finals",venue:"Estadio Banorte",city:"Mexico City",home:"1st Group A",away:"3rd Group C/E/F/H/I"},
+  {id:80,date:"2026-07-01",time:"12:00",stage:"16th Finals",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"1st Group L",away:"3rd Group E/H/I/J/K"},
+  {id:81,date:"2026-07-01",time:"13:00",stage:"16th Finals",venue:"Lumen Field",city:"Seattle",home:"1st Group G",away:"3rd Group A/E/H/I/J"},
+  {id:82,date:"2026-07-01",time:"17:00",stage:"16th Finals",venue:"Levi's Stadium",city:"San Francisco",home:"1st Group D",away:"3rd Group B/E/F/I/J"},
+  {id:83,date:"2026-07-02",time:"12:00",stage:"16th Finals",venue:"SoFi Stadium",city:"Los Angeles",home:"1st Group H",away:"2nd Group J"},
+  {id:84,date:"2026-07-02",time:"19:00",stage:"16th Finals",venue:"BMO Field",city:"Toronto",home:"2nd Group K",away:"2nd Group L"},
+  {id:85,date:"2026-07-02",time:"20:00",stage:"16th Finals",venue:"BC Place",city:"Vancouver",home:"1st Group B",away:"3rd Group E/F/G/I/J"},
+  {id:86,date:"2026-07-03",time:"13:00",stage:"16th Finals",venue:"AT&T Stadium",city:"Dallas",home:"2nd Group D",away:"2nd Group G"},
+  {id:87,date:"2026-07-03",time:"18:00",stage:"16th Finals",venue:"Hard Rock Stadium",city:"Miami",home:"1st Group J",away:"2nd Group H"},
+  {id:88,date:"2026-07-03",time:"20:30",stage:"16th Finals",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"1st Group K",away:"3rd Group D/E/I/J/L"},
+  {id:89,date:"2026-07-04",time:"12:00",stage:"8th Finals",venue:"NRG Stadium",city:"Houston",home:"Winner Match 73",away:"Winner Match 75"},
+  {id:90,date:"2026-07-04",time:"17:00",stage:"8th Finals",venue:"Lincoln Financial Field",city:"Philadelphia",home:"Winner Match 74",away:"Winner Match 77"},
+  {id:91,date:"2026-07-05",time:"16:00",stage:"8th Finals",venue:"MetLife Stadium",city:"New York/NJ",home:"Winner Match 76",away:"Winner Match 78"},
+  {id:92,date:"2026-07-05",time:"18:00",stage:"8th Finals",venue:"Estadio Banorte",city:"Mexico City",home:"Winner Match 79",away:"Winner Match 80"},
+  {id:93,date:"2026-07-06",time:"14:00",stage:"8th Finals",venue:"AT&T Stadium",city:"Dallas",home:"Winner Match 83",away:"Winner Match 84"},
+  {id:94,date:"2026-07-06",time:"17:00",stage:"8th Finals",venue:"Lumen Field",city:"Seattle",home:"Winner Match 81",away:"Winner Match 82"},
+  {id:95,date:"2026-07-07",time:"12:00",stage:"8th Finals",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Winner Match 86",away:"Winner Match 88"},
+  {id:96,date:"2026-07-07",time:"13:00",stage:"8th Finals",venue:"BC Place",city:"Vancouver",home:"Winner Match 85",away:"Winner Match 87"},
+  {id:97,date:"2026-07-09",time:"16:00",stage:"Quarter-finals",venue:"Gillette Stadium",city:"Boston",home:"Winner Match 89",away:"Winner Match 90"},
+  {id:98,date:"2026-07-10",time:"12:00",stage:"Quarter-finals",venue:"SoFi Stadium",city:"Los Angeles",home:"Winner Match 93",away:"Winner Match 94"},
+  {id:99,date:"2026-07-11",time:"17:00",stage:"Quarter-finals",venue:"Hard Rock Stadium",city:"Miami",home:"Winner Match 91",away:"Winner Match 92"},
+  {id:100,date:"2026-07-11",time:"20:00",stage:"Quarter-finals",venue:"GEHA Field at Arrowhead Stadium",city:"Kansas City",home:"Winner Match 95",away:"Winner Match 96"},
+  {id:101,date:"2026-07-14",time:"14:00",stage:"Semi-finals",venue:"AT&T Stadium",city:"Dallas",home:"Winner Quarter-final 1",away:"Winner Quarter-final 2"},
+  {id:102,date:"2026-07-15",time:"15:00",stage:"Semi-finals",venue:"Mercedes-Benz Stadium",city:"Atlanta",home:"Winner Quarter-final 3",away:"Winner Quarter-final 4"},
+  {id:103,date:"2026-07-18",time:"17:00",stage:"3rd Place Final",venue:"Hard Rock Stadium",city:"Miami",home:"Loser Semi-final 1",away:"Loser Semi-final 2"},
+  {id:104,date:"2026-07-19",time:"15:00",stage:"Final",venue:"MetLife Stadium",city:"New York/NJ",home:"Winner Semi-final 1",away:"Winner Semi-final 2"},
+];
+
+const CITIES = [...new Set(FIFA_MATCHES.map(m => m.city))].sort();
+const STAGE_ORDER = ["Group Stage","16th Finals","8th Finals","Quarter-finals","Semi-finals","3rd Place Final","Final"];
+const STAGE_COLORS = {
+  "Group Stage":"#3b82f6","16th Finals":"#8b5cf6","8th Finals":"#f59e0b",
+  "Quarter-finals":"#ef4444","Semi-finals":"#ec4899","3rd Place Final":"#14b8a6","Final":"#22c55e"
+};
+const PERSON_COLORS = ["#3b82f6","#ec4899","#f59e0b","#22c55e","#8b5cf6","#ef4444","#14b8a6","#f97316","#06b6d4","#a855f7","#84cc16","#f43f5e"];
+
+let _pid = 4;
+
+const INITIAL_TEAM = [
+  {id:1,name:"Rodrigo Alves",role:"Diretor",color:"#3b82f6",assignments:[6,32,51,104],flight:"",hotel:"",email:"rodrigo@livemode.com",phone:""},
+  {id:2,name:"Ana Lima",role:"Produção",color:"#ec4899",assignments:[21,45,70,103],flight:"",hotel:"",email:"",phone:""},
+  {id:3,name:"Carlos Mendes",role:"Câmera",color:"#f59e0b",assignments:[19,41,72,101],flight:"",hotel:"",email:"",phone:""},
+];
+
+const LS_TEAM_KEY  = "livemode_mundial_team_v2";
+const LS_PW_KEY    = "livemode_mundial_admin_pw";
+const DEFAULT_PW   = "livemode2026";
+
+const PASSWORDS = {
+  admin:      () => localStorage.getItem("livemode_pw_admin") || "livemode2026",
+  comercial:  "comercialmundial",
+  redes:      "redesmundial",
+  transmite:  "transmitemundial",
+  financeiro: "financeiromundial",
+};
+
+function checkPassword(pw) {
+  if (pw === PASSWORDS.admin())    return "admin";
+  if (pw === PASSWORDS.comercial)  return "comercial";
+  if (pw === PASSWORDS.redes)      return "redes";
+  if (pw === PASSWORDS.transmite)  return "transmite";
+  if (pw === PASSWORDS.financeiro) return "financeiro";
+  return null;
+}
+
+function loadTeam() {
+  try { const s = localStorage.getItem(LS_TEAM_KEY); if (s) return JSON.parse(s); } catch {}
+  return INITIAL_TEAM;
+}
+function getAdminPw() {
+  return PASSWORDS.admin();
+}
+
+function fmtDate(d) {
+  if (!d) return "";
+  return new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
+}
+
+// ── Translations ──────────────────────────────────────────────────────────────
+const TEAM_PT = {
+  "Ecuador":"Equador","Germany":"Alemanha","Côte d'Ivoire":"Costa do Marfim",
+  "Tunisia":"Tunísia","Netherlands":"Países Baixos","Japan":"Japão",
+  "Paraguay":"Paraguai","Australia":"Austrália","Norway":"Noruega","France":"França",
+  "Uruguay":"Uruguai","Spain":"Espanha","Saudi Arabia":"Arábia Saudita",
+  "Egypt":"Egito","IR Iran":"Rep. Isl. do Irão","New Zealand":"Nova Zelândia",
+  "Belgium":"Bélgica","Panama":"Panamá","England":"Inglaterra","Croatia":"Croácia",
+  "Ghana":"Gana","Colombia":"Colômbia","Uzbekistan":"Uzbequistão","Jordan":"Jordânia",
+  "Algeria":"Argélia","Austria":"Áustria","United States":"Estados Unidos",
+  "Brazil":"Brasil","Mexico":"México","Canada":"Canadá","Scotland":"Escócia",
+  "Morocco":"Marrocos","Korea Republic":"Coreia do Sul","South Africa":"África do Sul",
+  "Qatar":"Catar","Switzerland":"Suíça","Haiti":"Haiti",
+  "Bosnia and Herzegovina":"Bósnia-Herzegovina",
+  "Sweden":"Suécia",
+  "Türkiye":"Turquia",
+  "Czech Republic":"República Checa",
+  "DR Congo":"RD Congo",
+  "Iraq":"Iraque",
+};
+
+const STAGE_PT = {
+  "Group Stage":"Fase de Grupos","16th Finals":"Rodada de 32",
+  "8th Finals":"Oitavas de Final","Quarter-finals":"Quartas de Final",
+  "Semi-finals":"Semifinais","3rd Place Final":"Disputa do 3º Lugar","Final":"Final",
+};
+
+function tTeam(name) {
+  if (TEAM_PT[name]) return TEAM_PT[name];
+  return name
+    .replace(/^1st /,"1.º ").replace(/^2nd /,"2.º ").replace(/^3rd /,"3.º ")
+    .replace(/Group /,"Grupo ")
+    .replace(/^Winner Match /,"Vencedor Jogo ")
+    .replace(/^Winner Quarter-final /,"Vencedor QF")
+    .replace(/^Winner Semi-final /,"Vencedor SF")
+    .replace(/^Loser Semi-final /,"Perdedor SF")
+    .replace(/^Winner /,"Vencedor ").replace(/^Loser /,"Perdedor ");
+}
+function tStage(s) { return STAGE_PT[s] || s; }
+
+// ── Portugal time conversion ──────────────────────────────────────────────────
+// Portugal summer = UTC+1 (WEST)
+const CITY_UTC = {
+  "New York/NJ":-4,"Philadelphia":-4,"Boston":-4,"Miami":-4,"Atlanta":-4,"Toronto":-4,
+  "Kansas City":-5,"Dallas":-5,"Houston":-5,"Guadalajara":-5,"Monterrey":-5,"Mexico City":-5,
+  "Los Angeles":-7,"San Francisco":-7,"Seattle":-7,"Vancouver":-7,
+};
+function ptTime(localTime, city) {
+  const [h, m] = localTime.split(":").map(Number);
+  const diff = 1 - (CITY_UTC[city] ?? -5); // Portugal UTC+1 minus city offset
+  const total = h + diff;
+  const hh = total % 24;
+  const plus = total >= 24 ? " +1d" : "";
+  return `${String(hh).padStart(2,"0")}:${String(m).padStart(2,"0")}${plus}`;
+}
+// Reverse: Portugal time → local city time (admin enters PT, display both)
+function localFromPT(ptT, city) {
+  const clean = (ptT||"").replace(/ [+-]\d+d/,"");
+  if (!clean.includes(":")) return "";
+  const [h, m] = clean.split(":").map(Number);
+  const diff = 1 - (CITY_UTC[city] ?? -5);
+  const total = h - diff;
+  const hh = ((total % 24) + 24) % 24;
+  return `${String(hh).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+// ── Shared ───────────────────────────────────────────────────────────────────
+function Badge({ children, color }) {
+  return (
+    <span style={{background:color+"22",color,borderColor:color+"55"}}
+      className="px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap">
+      {children}
+    </span>
+  );
+}
+
+function Avatar({ name, color, size="md" }) {
+  const initials = name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
+  const cls = size==="sm"?"w-6 h-6 text-xs":size==="lg"?"w-12 h-12 text-lg":"w-9 h-9 text-sm";
+  return (
+    <div style={{background:color}}
+      className={`${cls} rounded-full flex items-center justify-center font-bold text-white shrink-0`}>
+      {initials}
+    </div>
+  );
+}
+
+function ColorPicker({ value, onChange }) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {PERSON_COLORS.map(c => (
+        <button key={c} type="button" onClick={()=>onChange(c)}
+          style={{background:c, boxShadow:value===c?`0 0 0 3px #1e293b,0 0 0 5px ${c}`:"none"}}
+          className="w-7 h-7 rounded-full transition-transform hover:scale-110 shrink-0"/>
+      ))}
+    </div>
+  );
+}
+
+// ── Login Screen (full page) ──────────────────────────────────────────────────
+function LoginScreen({ onSuccess }) {
+  const [pw,    setPw]    = useState("");
+  const [error, setError] = useState(false);
+  const [shake, setShake] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 150); }, []);
+
+  function submit(e) {
+    e.preventDefault();
+    const role = checkPassword(pw);
+    if (role) {
+      onSuccess(role);
+    } else {
+      setError(true); setPw("");
+      setShake(true); setTimeout(() => setShake(false), 500);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6">
+      {/* Glow decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl"/>
+      </div>
+
+      <div className="relative w-full max-w-xs">
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <div className="text-6xl mb-4 drop-shadow-lg">🏆</div>
+          <div className="text-2xl font-bold text-white tracking-tight">Mundial 2026</div>
+          <div className="text-sm font-semibold text-emerald-400 mt-1 tracking-wide uppercase">LiveMode TV</div>
+          <div className="text-xs text-slate-500 mt-2">Plano de Pauta & Logística · Uso interno</div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={submit} className="space-y-3">
+          <div style={{transform: shake ? "translateX(-6px)" : "none", transition:"transform 0.1s ease"}}>
+            <input
+              ref={inputRef}
+              type="password"
+              value={pw}
+              onChange={e=>{ setPw(e.target.value); setError(false); }}
+              placeholder="Insira a sua senha"
+              className={`w-full px-4 py-3.5 bg-slate-800 border rounded-2xl text-sm text-slate-100 placeholder-slate-500 outline-none transition-all text-center tracking-widest ${
+                error ? "border-red-500/70 bg-red-900/10" : "border-slate-700 focus:border-emerald-600/70 focus:bg-slate-800/80"
+              }`}
+            />
+          </div>
+          {error && (
+            <p className="text-xs text-red-400 text-center animate-pulse">Senha incorreta. Tente novamente.</p>
+          )}
+          <button type="submit"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-2xl text-sm font-semibold transition-all shadow-lg shadow-emerald-900/40">
+            Entrar →
+          </button>
+        </form>
+
+        <div className="text-center mt-10 text-xs text-slate-700">© 2026 LiveMode TV</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Change Password Modal ────────────────────────────────────────────────────
+function ChangePwModal({ onClose, userRole }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext]       = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg]         = useState(null); // {type:"ok"|"err", text}
+
+  function submit(e) {
+    e.preventDefault();
+    if (checkPassword(current) !== "admin") return setMsg({type:"err", text:"Senha atual incorreta"});
+    if (next.length < 4)          return setMsg({type:"err", text:"Nova senha muito curta (mín. 4 caracteres)"});
+    if (next !== confirm)          return setMsg({type:"err", text:"As senhas não coincidem"});
+    localStorage.setItem("livemode_pw_admin", next);
+    setMsg({type:"ok", text:"Senha alterada com sucesso!"});
+    setTimeout(onClose, 1200);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="bg-slate-800 rounded-2xl border border-slate-600 p-6 w-full max-w-sm shadow-2xl">
+        <h2 className="text-base font-bold text-slate-100 mb-4">🔑 Alterar Senha Admin</h2>
+        <form onSubmit={submit} className="space-y-2.5">
+          {[["Senha atual","password",current,setCurrent],
+            ["Nova senha (mín. 4 char.)","password",next,setNext],
+            ["Confirmar nova senha","password",confirm,setConfirm]
+          ].map(([label, type, val, set]) => (
+            <div key={label}>
+              <label className="text-xs text-slate-400 mb-1 block">{label}</label>
+              <input type={type} value={val} onChange={e=>{ set(e.target.value); setMsg(null); }}
+                className="w-full px-3 py-2 bg-slate-700/60 border border-slate-600 rounded-xl text-sm text-slate-100 outline-none focus:border-slate-400"/>
+            </div>
+          ))}
+          {msg && (
+            <p className={`text-xs text-center ${msg.type==="ok"?"text-emerald-400":"text-red-400"}`}>{msg.text}</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors">
+              Cancelar
+            </button>
+            <button type="submit"
+              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition-colors">
+              Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── HOME TAB (NEW) ──────────────────────────────────────────────────────────────
+function Home({ team, agenda, broadcastData }) {
+  // Find today's date
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Check if today has matches or agenda items
+  const todayMatches = FIFA_MATCHES.filter(m => m.date === today);
+  const todayAgenda = agenda.filter(e => e.date === today && e.personId !== "__team__");
+  const todayHasContent = todayMatches.length > 0 || todayAgenda.length > 0;
+  
+  // If no content today, find next date with activity
+  let displayDate = today;
+  if (!todayHasContent) {
+    const allDates = [
+      ...new Set([
+        ...FIFA_MATCHES.map(m => m.date),
+        ...agenda.filter(e => e.personId !== "__team__").map(e => e.date)
+      ])
+    ].sort();
+    displayDate = allDates.find(d => d > today) || allDates[allDates.length - 1] || today;
+  }
+  
+  const dayMatches = FIFA_MATCHES.filter(m => m.date === displayDate);
+  const dayAgenda = agenda.filter(e => e.date === displayDate && e.personId !== "__team__");
+  
+  const dateObj = new Date(displayDate + "T12:00:00");
+  const dateStr = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
+  const headerLabel = displayDate === today ? "📅 Hoje" : "📅 Próximo Dia";
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 p-4">
+        <div className="text-lg font-bold text-slate-100 capitalize">
+          {headerLabel} — {dateStr}
+        </div>
+      </div>
+
+      {/* Day summary: Matches */}
+      {dayMatches.length > 0 && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <div className="text-sm font-semibold text-slate-200 mb-3">⚽ Jogos ({dayMatches.length})</div>
+          <div className="space-y-2">
+            {dayMatches.map(m => {
+              const bc = broadcastData?.[m.id];
+              const pt = ptTime(m.time, m.city);
+              return (
+                <div key={m.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">📍 {m.city} · {m.venue}</div>
+                    </div>
+                    <div className="text-xs text-slate-400 text-right shrink-0">
+                      <div>🕐 {m.time} local</div>
+                      <div className="text-slate-500">🇵🇹 {pt} PT</div>
+                    </div>
+                  </div>
+                  {bc?.enabled && (
+                    <div className="mt-2 pt-2 border-t border-slate-700/30 text-xs">
+                      <span className="text-red-400 font-medium">📡 Emissão ao vivo</span>
+                      {bc.preGame && <div className="text-slate-400">Pré-jogo: 🇵🇹 {bc.preGame}</div>}
+                      {bc.postGame && <div className="text-slate-400">Pós-jogo: 🇵🇹 {bc.postGame}</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Day summary: Agenda items */}
+      {dayAgenda.length > 0 && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <div className="text-sm font-semibold text-slate-200 mb-3">📋 Pauta ({dayAgenda.length})</div>
+          <div className="space-y-2">
+            {dayAgenda.map(e => {
+              const p = team.find(x => x.id === e.personId);
+              const ct = COMMITMENT_TYPES.find(t => t.id === e.type) || {emoji: "📝", label: e.customType || "Outro"};
+              const linkedMatch = e.matchId ? FIFA_MATCHES.find(m => m.id === e.matchId) : null;
+              return (
+                <div key={e.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <span className="text-base shrink-0">{ct.emoji}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium text-slate-200">{ct.label}</span>
+                        {p && <Avatar name={p.name} color={p.color} size="sm"/>}
+                      </div>
+                      {e.time && <div className="text-xs text-slate-400 mt-0.5">🕐 {e.time}</div>}
+                      {linkedMatch && <div className="text-xs text-slate-400 mt-0.5">⚽ {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)}</div>}
+                      {e.notes && <div className="text-xs text-slate-500 mt-0.5">📝 {e.notes}</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <div>
+        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 Resumo Geral</div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(() => {
+            const coveredMatchIds = new Set(team.flatMap(p => p.assignments));
+            const cityPeople = {};
+            team.forEach(p => {
+              p.assignments.forEach(mid => {
+                const m = FIFA_MATCHES.find(x => x.id === mid);
+                if (!m) return;
+                if (!cityPeople[m.city]) cityPeople[m.city] = new Set();
+                cityPeople[m.city].add(p.id);
+              });
+            });
+            const stats = [
+              {emoji:"👥",label:"Membros",value:team.length,color:"#3b82f6"},
+              {emoji:"⚽",label:"Jogos Cobertos",value:coveredMatchIds.size,color:"#22c55e"},
+              {emoji:"📋",label:"Total de Pautas",value:team.reduce((s,p)=>s+p.assignments.length,0),color:"#f59e0b"},
+              {emoji:"🏙️",label:"Cidades",value:Object.keys(cityPeople).length,color:"#ec4899"},
+            ];
+            return stats.map(s=>(
+              <div key={s.label} style={{borderColor:s.color+"33"}} className="bg-slate-800/70 rounded-2xl p-4 border">
+                <div className="text-2xl mb-1">{s.emoji}</div>
+                <div style={{color:s.color}} className="text-2xl font-bold">{s.value}</div>
+                <div className="text-xs text-slate-400">{s.label}</div>
+              </div>
+            ));
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard({ team }) {
+  const coveredMatchIds = new Set(team.flatMap(p=>p.assignments));
+  const cityPeople = {};
+  team.forEach(p=>{
+    p.assignments.forEach(mid=>{
+      const m = FIFA_MATCHES.find(x=>x.id===mid);
+      if (!m) return;
+      if (!cityPeople[m.city]) cityPeople[m.city] = new Set();
+      cityPeople[m.city].add(p.id);
+    });
+  });
+
+  const stats = [
+    {emoji:"👥",label:"Membros",value:team.length,color:"#3b82f6"},
+    {emoji:"⚽",label:"Jogos Cobertos",value:coveredMatchIds.size,color:"#22c55e"},
+    {emoji:"📋",label:"Total de Pautas",value:team.reduce((s,p)=>s+p.assignments.length,0),color:"#f59e0b"},
+    {emoji:"🏙️",label:"Cidades",value:Object.keys(cityPeople).length,color:"#ec4899"},
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map(s=>(
+          <div key={s.label} style={{borderColor:s.color+"33"}} className="bg-slate-800/70 rounded-2xl p-4 border">
+            <div className="text-2xl mb-1">{s.emoji}</div>
+            <div style={{color:s.color}} className="text-2xl font-bold">{s.value}</div>
+            <div className="text-xs text-slate-400">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700/50">
+          <span className="text-sm font-semibold text-slate-200">👥 Equipe no Mundial</span>
+        </div>
+        {team.length===0
+          ? <div className="py-10 text-center text-slate-500 text-sm">Nenhum membro ainda.</div>
+          : team.map(p=>{
+              const cities = [...new Set(FIFA_MATCHES.filter(m=>p.assignments.includes(m.id)).map(m=>m.city))];
+              return (
+                <div key={p.id} className="px-4 py-3 flex items-center gap-3 border-b border-slate-700/30 last:border-0">
+                  <Avatar name={p.name} color={p.color}/>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-200">{p.name}</span>
+                      {p.role && <span className="text-xs text-slate-500">{p.role}</span>}
+                    </div>
+                    <div className="text-xs text-slate-400 truncate mt-0.5">{cities.length?cities.join(" · "):"—"}</div>
+                    {(p.email||p.phone)&&(
+                      <div className="text-xs text-slate-500 mt-0.5 flex gap-2 flex-wrap">
+                        {p.email&&<span>✉️ {p.email}</span>}
+                        {p.phone&&<span>📱 {p.phone}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold" style={{color:p.color}}>{p.assignments.length}</div>
+                    <div className="text-xs text-slate-500">jogos</div>
+                  </div>
+                </div>
+              );
+            })
+        }
+      </div>
+
+      <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700/50">
+          <span className="text-sm font-semibold text-slate-200">🏙️ Cobertura por Cidade</span>
+        </div>
+        {Object.keys(cityPeople).length===0
+          ? <div className="py-8 text-center text-slate-500 text-sm">Atribua jogos para ver a cobertura</div>
+          : Object.entries(cityPeople).sort((a,b)=>b[1].size-a[1].size).map(([city,pids])=>(
+              <div key={city} className="px-4 py-2.5 flex items-center gap-3 border-b border-slate-700/30 last:border-0">
+                <span className="text-sm text-slate-200 flex-1">📍 {city}</span>
+                <div className="flex gap-1 flex-wrap justify-end">
+                  {[...pids].map(pid=>{
+                    const p=team.find(x=>x.id===pid); if(!p) return null;
+                    return (
+                      <span key={pid} style={{background:p.color+"33",color:p.color}}
+                        className="text-xs px-2 py-0.5 rounded-full font-medium">
+                        {p.name.split(" ")[0]}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+}
+
+// ── SCHEDULE ─────────────────────────────────────────────────────────────────
+function Schedule({ team, broadcastData, setBroadcastData, isAdmin }) {
+  const [stageFilter, setStageFilter] = useState("Todos");
+  const [cityFilter,  setCityFilter]  = useState("Todas");
+  const [search,      setSearch]      = useState("");
+
+  const filtered = FIFA_MATCHES.filter(m=>{
+    if (stageFilter!=="Todos" && m.stage!==stageFilter) return false;
+    if (cityFilter!=="Todas"  && m.city!==cityFilter)   return false;
+    const searchable = `${tTeam(m.home)} ${tTeam(m.away)} ${m.home} ${m.away} ${m.city} ${m.venue}`.toLowerCase();
+    if (search && !searchable.includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const grouped = {};
+  filtered.forEach(m=>{ if (!grouped[m.date]) grouped[m.date]=[]; grouped[m.date].push(m); });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar seleção, cidade…"
+            className="w-full pl-8 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-slate-500"/>
+        </div>
+        <select value={stageFilter} onChange={e=>setStageFilter(e.target.value)}
+          className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-200 outline-none">
+          <option value="Todos">Todos</option>
+          {STAGE_ORDER.map(s=><option key={s} value={s}>{tStage(s)}</option>)}
+        </select>
+        <select value={cityFilter} onChange={e=>setCityFilter(e.target.value)}
+          className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-200 outline-none">
+          {["Todas",...CITIES].map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div className="text-xs text-slate-500">{filtered.length} jogo{filtered.length!==1?"s":""}</div>
+
+      {Object.entries(grouped).sort(([a],[b])=>a.localeCompare(b)).map(([date,matches])=>(
+        <div key={date}>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-4 mb-2">{fmtDate(date)}</div>
+          <div className="space-y-2">
+            {matches.map(m=>{
+              const assignedTo = team.filter(p=>p.assignments.includes(m.id));
+              const pt = ptTime(m.time, m.city);
+              const bc = broadcastData?.[m.id] || {};
+              function setBc(patch) {
+                setBroadcastData(prev=>({...prev,[m.id]:{...prev[m.id],...patch}}));
+              }
+              return (
+                <div key={m.id} className="rounded-xl p-3 border border-slate-700/50 bg-slate-800/60">
+                  {/* Top row: number + stage badge + times */}
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className="text-xs font-bold text-slate-500 font-mono">#{m.id}</span>
+                    <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 ml-auto flex-wrap justify-end">
+                      <span>🕐 {m.time} <span className="text-slate-500">local</span></span>
+                      <span className="text-slate-600">·</span>
+                      <span>🇵🇹 {pt} <span className="text-slate-500">Portugal</span></span>
+                    </div>
+                  </div>
+                  {/* Match */}
+                  <div className="text-sm font-semibold text-slate-100">{tTeam(m.home)} <span className="text-slate-400">×</span> {tTeam(m.away)}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">📍 {m.venue} · {m.city}</div>
+                  {assignedTo.length>0&&(
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {assignedTo.map(p=>(
+                        <span key={p.id} style={{background:p.color+"33",color:p.color}}
+                          className="text-xs px-2 py-0.5 rounded-full font-medium">
+                          {p.name.split(" ")[0]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* ── Broadcast / Emissão em Direto ── */}
+                  {isAdmin ? (
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-700/50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">📡 Emissão em direto</span>
+                        <button onClick={()=>setBc({enabled:!bc.enabled})}
+                          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${bc.enabled?"bg-red-600":"bg-slate-600"}`}>
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${bc.enabled?"translate-x-4":"translate-x-0"}`}/>
+                        </button>
+                        <span className={`text-xs font-medium ${bc.enabled?"text-red-400":"text-slate-500"}`}>{bc.enabled?"Sim":"Não"}</span>
+                      </div>
+                      {bc.enabled&&(
+                        <div className="space-y-1.5 mt-2">
+                          <div className="flex gap-3 flex-wrap items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-400">🇵🇹 Pré-jogo (PT)</span>
+                              <input type="time" value={bc.preGame||""} onChange={e=>setBc({preGame:e.target.value})}
+                                className="text-xs bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-slate-200 outline-none"/>
+                            </div>
+                            {bc.preGame&&<span className="text-xs text-slate-500">⏰ {localFromPT(bc.preGame,m.city)} local</span>}
+                          </div>
+                          <div className="flex gap-3 flex-wrap items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-400">🇵🇹 Fim pós-jogo (PT)</span>
+                              <input type="time" value={bc.postGame||""} onChange={e=>setBc({postGame:e.target.value})}
+                                className="text-xs bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-slate-200 outline-none"/>
+                            </div>
+                            {bc.postGame&&<span className="text-xs text-slate-500">⏰ {localFromPT(bc.postGame,m.city)} local</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : bc.enabled ? (
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-700/50 space-y-1">
+                      <span className="text-xs font-medium text-red-400">📡 Emissão em direto</span>
+                      {bc.preGame&&(
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-slate-400">⏱ Pré-jogo:</span>
+                          <span className="text-slate-200">🇵🇹 {bc.preGame} PT</span>
+                          <span className="text-slate-500">/ ⏰ {localFromPT(bc.preGame,m.city)} local</span>
+                        </div>
+                      )}
+                      {bc.postGame&&(
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-slate-400">🏁 Fim pós-jogo:</span>
+                          <span className="text-slate-200">🇵🇹 {bc.postGame} PT</span>
+                          <span className="text-slate-500">/ ⏰ {localFromPT(bc.postGame,m.city)} local</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── TEAM ─────────────────────────────────────────────────────────────────────
+const BLANK_FORM = {name:"",role:"",email:"",phone:"",color:PERSON_COLORS[0]};
+
+function TeamTab({ team, setTeam, isAdmin }) {
+  const [matchView, setMatchView] = useState(null);
+  const [editId,    setEditId]    = useState(null);
+  const [form,      setForm]      = useState(BLANK_FORM);
+  const [sf,        setSf]        = useState("Todos");
+  const [cf,        setCf]        = useState("Todas");
+
+  const matchPerson = matchView ? team.find(p=>p.id===matchView) : null;
+
+  function nextColor() { return PERSON_COLORS[team.length % PERSON_COLORS.length]; }
+
+  function startEdit(p) {
+    setEditId(p.id);
+    setForm({name:p.name,role:p.role||"",email:p.email||"",phone:p.phone||"",color:p.color});
+  }
+
+  function cancelForm() {
+    setEditId(null);
+    setForm({...BLANK_FORM, color:nextColor()});
+  }
+
+  function savePerson() {
+    if (!form.name.trim()) return;
+    if (editId) {
+      setTeam(prev=>prev.map(p=>p.id===editId?{...p,...form,name:form.name.trim(),role:form.role.trim()}:p));
+      setEditId(null);
+    } else {
+      setTeam(prev=>[...prev,{id:_pid++,name:form.name.trim(),role:form.role.trim(),email:form.email.trim(),phone:form.phone.trim(),color:form.color,assignments:[],flight:"",hotel:""}]);
+    }
+    setForm({...BLANK_FORM, color:nextColor()});
+  }
+
+  function removePerson(id) {
+    if (matchView===id) setMatchView(null);
+    if (editId===id) cancelForm();
+    setTeam(prev=>prev.filter(p=>p.id!==id));
+  }
+
+  function toggleMatch(personId, matchId) {
+    setTeam(prev=>prev.map(p=>{
+      if (p.id!==personId) return p;
+      const has = p.assignments.includes(matchId);
+      return {...p, assignments: has?p.assignments.filter(a=>a!==matchId):[...p.assignments,matchId]};
+    }));
+  }
+
+  function updateField(personId, field, value) {
+    setTeam(prev=>prev.map(p=>p.id===personId?{...p,[field]:value}:p));
+  }
+
+  function moveUp(id) {
+    setTeam(prev=>{
+      const i=prev.findIndex(p=>p.id===id); if(i<=0) return prev;
+      const a=[...prev]; [a[i-1],a[i]]=[a[i],a[i-1]]; return a;
+    });
+  }
+  function moveDown(id) {
+    setTeam(prev=>{
+      const i=prev.findIndex(p=>p.id===id); if(i<0||i>=prev.length-1) return prev;
+      const a=[...prev]; [a[i],a[i+1]]=[a[i+1],a[i]]; return a;
+    });
+  }
+
+  const filteredMatches = FIFA_MATCHES.filter(m=>{
+    if (sf!=="Todos" && m.stage!==sf) return false;
+    if (cf!=="Todas" && m.city!==cf)  return false;
+    return true;
+  });
+
+  // ── Match assignment view ──
+  if (matchPerson) return (
+    <div className="space-y-4">
+      <button onClick={()=>setMatchView(null)}
+        className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+        ← Voltar
+      </button>
+
+      <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <Avatar name={matchPerson.name} color={matchPerson.color} size="lg"/>
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-bold text-slate-100">{matchPerson.name}</div>
+            <div className="text-sm text-slate-400">{matchPerson.role||"—"}</div>
+          </div>
+        </div>
+        {isAdmin && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">✈️ Voo / Transfer</label>
+              <input value={matchPerson.flight} onChange={e=>updateField(matchPerson.id,"flight",e.target.value)}
+                placeholder="Ex: AA123 · GRU→JFK · 20 Jun"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-slate-400"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🏨 Hotel / Hospedagem</label>
+              <input value={matchPerson.hotel} onChange={e=>updateField(matchPerson.id,"hotel",e.target.value)}
+                placeholder="Ex: Marriott NYC · 23 Jun–2 Jul"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-slate-400"/>
+            </div>
+          </div>
+        )}
+        {!isAdmin && (matchPerson.flight||matchPerson.hotel) && (
+          <div className="grid sm:grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
+            {matchPerson.flight&&<div>✈️ {matchPerson.flight}</div>}
+            {matchPerson.hotel&&<div>🏨 {matchPerson.hotel}</div>}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between flex-wrap gap-2">
+          <span className="text-sm font-semibold text-slate-200">
+            ⚽ {isAdmin?"Atribuir Jogos":"Jogos Atribuídos"}
+            <span className="text-slate-500 font-normal ml-1">({matchPerson.assignments.length} selecionados)</span>
+          </span>
+          <div className="flex gap-2">
+            <select value={sf} onChange={e=>setSf(e.target.value)}
+              className="px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-slate-200 outline-none">
+              {["Todos",...STAGE_ORDER].map(s=><option key={s}>{s}</option>)}
+            </select>
+            <select value={cf} onChange={e=>setCf(e.target.value)}
+              className="px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-xs text-slate-200 outline-none">
+              {["Todas",...CITIES].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="px-2 py-1 max-h-96 overflow-y-auto no-scrollbar">
+          {filteredMatches.map(m=>{
+            const assigned = matchPerson.assignments.includes(m.id);
+            if (!isAdmin && !assigned) return null;
+            return (
+              <div key={m.id}
+                onClick={()=>isAdmin&&toggleMatch(matchPerson.id,m.id)}
+                className={`flex items-center gap-2 py-2 px-2 rounded-lg transition-colors ${isAdmin?"hover:bg-white/5 cursor-pointer":""}`}>
+                <span className="text-xs text-slate-400 w-14 shrink-0">{fmtDate(m.date)}</span>
+                <span className="text-xs text-slate-400 w-10 shrink-0">{m.time}</span>
+                <span className="text-xs font-medium text-slate-200 flex-1 truncate">{tTeam(m.home)} × {tTeam(m.away)}</span>
+                <span className="text-xs text-slate-500 truncate max-w-[90px] hidden sm:block">{m.city}</span>
+                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${assigned?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>
+                  {assigned&&<span className="text-white text-xs font-bold">✓</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Main list + form ──
+  return (
+    <div className="space-y-4">
+      {/* Add/Edit form — admin only */}
+      {isAdmin && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <h3 className="text-sm font-semibold text-slate-200 mb-3">
+            {editId?"✏️ Editar Membro":"+ Adicionar Membro"}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+            {[["Nome completo *","text",form.name,v=>setForm(f=>({...f,name:v}))],
+              ["Função (ex: Câmera)","text",form.role,v=>setForm(f=>({...f,role:v}))],
+              ["E-mail (opcional)","email",form.email,v=>setForm(f=>({...f,email:v}))],
+              ["WhatsApp / Telefone","tel",form.phone,v=>setForm(f=>({...f,phone:v}))]
+            ].map(([ph,type,val,set])=>(
+              <input key={ph} type={type} value={val} onChange={e=>set(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&savePerson()} placeholder={ph}
+                className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-slate-400"/>
+            ))}
+          </div>
+          <div className="mb-4">
+            <label className="text-xs text-slate-400 mb-2 block">🎨 Cor do Avatar</label>
+            <ColorPicker value={form.color} onChange={c=>setForm(f=>({...f,color:c}))}/>
+          </div>
+          <div className="flex gap-2 justify-end">
+            {editId&&(
+              <button onClick={cancelForm}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors">
+                Cancelar
+              </button>
+            )}
+            <button onClick={savePerson} disabled={!form.name.trim()}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-colors">
+              {editId?"Salvar Alterações":"Adicionar"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Team cards */}
+      <div className="space-y-2">
+        {team.length===0&&(
+          <div className="py-10 text-center text-slate-500 text-sm">
+            {isAdmin?"Nenhum membro ainda. Adicione acima.":"Nenhum membro cadastrado."}
+          </div>
+        )}
+        {team.map(p=>{
+          const cities=[...new Set(FIFA_MATCHES.filter(m=>p.assignments.includes(m.id)).map(m=>m.city))];
+          return (
+            <div key={p.id}
+              style={editId===p.id?{borderColor:p.color+"66"}:{}}
+              className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4 transition-colors">
+              <div className="flex items-start gap-3">
+                <Avatar name={p.name} color={p.color}/>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-200">{p.name}</span>
+                    {p.role&&<span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{p.role}</span>}
+                  </div>
+                  {(p.email||p.phone)&&(
+                    <div className="text-xs text-slate-500 mt-1 flex gap-3 flex-wrap">
+                      {p.email&&<span>✉️ {p.email}</span>}
+                      {p.phone&&<span>📱 {p.phone}</span>}
+                    </div>
+                  )}
+                  <div className="mt-1.5 flex gap-2 flex-wrap items-center">
+                    <span className="text-xs font-medium" style={{color:p.color}}>
+                      {p.assignments.length} jogo{p.assignments.length!==1?"s":""}
+                    </span>
+                    {cities.length>0&&<span className="text-xs text-slate-500">· {cities.join(" · ")}</span>}
+                  </div>
+                  {(p.flight||p.hotel)&&(
+                    <div className="mt-1 text-xs text-slate-500 flex gap-2 flex-wrap">
+                      {p.flight&&<span>✈️ {p.flight}</span>}
+                      {p.hotel&&<span>🏨 {p.hotel}</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-1.5 shrink-0 mt-0.5">
+                  {isAdmin&&(
+                    <>
+                      <div className="flex flex-col gap-0.5">
+                        <button onClick={()=>moveUp(p.id)} title="Mover para cima"
+                          className="w-6 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-slate-200 rounded text-xs leading-none transition-colors">▲</button>
+                        <button onClick={()=>moveDown(p.id)} title="Mover para baixo"
+                          className="w-6 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-slate-200 rounded text-xs leading-none transition-colors">▼</button>
+                      </div>
+                      <button onClick={()=>startEdit(p)} title="Editar perfil"
+                        className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs transition-colors">✏️</button>
+                      <button onClick={()=>setMatchView(p.id)} title="Atribuir jogos"
+                        className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs transition-colors">⚽</button>
+                      <button onClick={()=>removePerson(p.id)} title="Remover"
+                        className="p-1.5 text-slate-500 hover:text-red-400 transition-colors">🗑</button>
+                    </>
+                  )}
+                  {!isAdmin&&(
+                    <button onClick={()=>setMatchView(p.id)} title="Ver jogos"
+                      className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs transition-colors">⚽ Ver jogos</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── AGENDA — constants ────────────────────────────────────────────────────────
+const COMMITMENT_TYPES = [
+  {id:"voo",        emoji:"✈️",  label:"Voo",                    color:"#3b82f6"},
+  {id:"treino",     emoji:"🏋️", label:"Cobertura de Treino",     color:"#22c55e"},
+  {id:"md1",        emoji:"📅",  label:"Cobertura MD-1",          color:"#f59e0b"},
+  {id:"jogo",       emoji:"⚽",  label:"Cobertura de Jogo",       color:"#ef4444"},
+  {id:"conferencia",emoji:"🎤",  label:"Conferência de Imprensa", color:"#8b5cf6"},
+  {id:"direto",     emoji:"📡",  label:"Entrada em Direto",       color:"#ec4899"},
+  {id:"gravacao",   emoji:"🎬",  label:"Gravação de Conteúdo",    color:"#f97316"},
+  {id:"comercial",  emoji:"🤝",  label:"Comercial",               color:"#06b6d4"},
+  {id:"redes",      emoji:"📲",  label:"Redes Sociais",           color:"#a855f7"},
+  {id:"checkin",    emoji:"🏨",  label:"Check-in / Check-out",    color:"#14b8a6"},
+  {id:"folga",      emoji:"😴",  label:"Dia de Folga",            color:"#64748b"},
+  {id:"outro",      emoji:"📝",  label:"Outro",                   color:"#94a3b8"},
+];
+
+// ── Pitch Positions ──────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+
+const PITCH_POSITIONS_CATALOG = [
+  // Chegadas
+  {id:"team_arrival",      cat:"arrival",   emoji:"🎬", label:"Team Arrival Filming Position",          note:"Non-Equipped",        price:0},
+  {id:"player_arrival",    cat:"arrival",   emoji:"🎤", label:"Player Arrival Multilateral Interview",  note:"",                    price:0},
+  {id:"coach_prewarmup",   cat:"warmup",    emoji:"🎤", label:"Coach Pre-Warmup Multilateral Interview",note:"",                    price:0},
+  // Campo
+  {id:"touchline_partial", cat:"pitch",     emoji:"📺", label:"Presentation Position – Behind Goal",    note:"Group Stage",         price:3500},
+  {id:"touchline_knockout",cat:"pitch",     emoji:"📺", label:"Presentation Position – Behind Goal",    note:"Knockout Stage",      price:4100},
+  {id:"halftime_flash",    cat:"pitch",     emoji:"⚡", label:"Half-Time Multilateral Flash Interview", note:"",                    price:0},
+  {id:"digital_reporter",  cat:"pitch",     emoji:"📱", label:"Digital Reporter Position",              note:"",                    price:100},
+  {id:"centre_circle",     cat:"pitch",     emoji:"⭕", label:"Centre Circle",                          note:"",                    price:450},
+  {id:"reporter_bg1",      cat:"pitch",     emoji:"🎙️",label:"Reporter Position – Behind Goal",        note:"Posição 1",           price:450},
+  {id:"reporter_bg2",      cat:"pitch",     emoji:"🎙️",label:"Reporter Position – Behind Goal",        note:"Posição 2",           price:450},
+  {id:"camera_eng",        cat:"camera",    emoji:"📷", label:"Camera Position ENG",                    note:"",                    price:100},
+  // Internet
+  {id:"touchline_inet",    cat:"internet",  emoji:"📡", label:"Touchline Internet Access",              note:"",                    price:790},
+  {id:"tv_pitch_inet",     cat:"internet",  emoji:"📡", label:"TV Pitch Reporter Behind Goal Internet", note:"",                    price:490},
+  {id:"uni_flash_20",      cat:"internet",  emoji:"📡", label:"Uni Flash Internet Access 20 Mbps",      note:"",                    price:790},
+  // Observadores
+  {id:"observer1",         cat:"observer",  emoji:"💺", label:"Observer Seat",                          note:"1",                   price:50},
+  {id:"observer2",         cat:"observer",  emoji:"💺", label:"Observer Seat",                          note:"2",                   price:50},
+  {id:"observer3",         cat:"observer",  emoji:"💺", label:"Observer Seat",                          note:"3",                   price:50},
+  {id:"observer4",         cat:"observer",  emoji:"💺", label:"Observer Seat",                          note:"4",                   price:50},
+  {id:"observer5",         cat:"observer",  emoji:"💺", label:"Observer Seat",                          note:"5",                   price:50},
+  // Pós-jogo
+  {id:"fulltime_flash",    cat:"postmatch", emoji:"⚡", label:"Full-Time Multilateral Flash Interview", note:"",                    price:0},
+  {id:"postmatch_uni",     cat:"postmatch", emoji:"📺", label:"Post-Match Unilateral Flash Interview TV",note:"Partially Equipped", price:1100},
+  // Conferência
+  {id:"pressconf_tv",      cat:"pressconf", emoji:"🎥", label:"TV Camera Press Conference Access",      note:"ENG",                 price:0},
+  {id:"pressconf_journ",   cat:"pressconf", emoji:"🗒️",label:"Press Conference Access",                note:"Journalist",          price:0},
+  // Zona Mista / Saída
+  {id:"mixedzone_reporter_mobile", cat:"zone", emoji:"🚶", label:"Zona Mista (Repórter com Mobile)",  note:"", price:0},
+  {id:"mixedzone_digital",         cat:"zone", emoji:"🚶", label:"Zona Mista (Digital Creator)",        note:"", price:0},
+  {id:"mixedzone_reporter_camera", cat:"zone", emoji:"🚶", label:"Zona Mista (Repórter + Câmera)",     note:"", price:0},
+  {id:"team_departure",    cat:"departure", emoji:"🎬", label:"Team Departure Filming Position",        note:"Non-Equipped",        price:0},
+  {id:"parking",           cat:"other",     emoji:"🅿️",label:"Parking Space",                          note:"TBD",                 price:0},
+];
+
+const PITCH_CAT_META = {
+  arrival:   {label:"Chegadas",                  color:"#f59e0b"},
+  warmup:    {label:"Aquecimento",               color:"#84cc16"},
+  pitch:     {label:"Campo",                     color:"#3b82f6"},
+  camera:    {label:"Câmara",                    color:"#8b5cf6"},
+  internet:  {label:"Internet",                  color:"#06b6d4"},
+  observer:  {label:"Lugares de Observador",     color:"#64748b"},
+  postmatch: {label:"Pós-Jogo",                  color:"#ef4444"},
+  pressconf: {label:"Conferência de Imprensa",   color:"#ec4899"},
+  zone:      {label:"Zona Mista",                color:"#f97316"},
+  departure: {label:"Partida das Equipas",       color:"#10b981"},
+  other:     {label:"Outro",                     color:"#94a3b8"},
+};
+
+const LS_PITCH_KEY = "livemode_mundial_pitch_v1";
+function loadPitch() {
+  try { const s=localStorage.getItem(LS_PITCH_KEY); if(s) return JSON.parse(s); } catch {}
+  return {};
+}
+// Structure: { [matchId]: { inLoco: bool, positions: { [posId]: { time, personIds, notes } } } }
+
+const LS_AGENDA_KEY = "livemode_mundial_agenda_v1";
+function loadAgenda() {
+  try { const s=localStorage.getItem(LS_AGENDA_KEY); if(s) return JSON.parse(s); } catch {}
+  return [];
+}
+
+function generateDates(from, to) {
+  const out=[]; const d=new Date(from+"T12:00:00"); const end=new Date(to+"T12:00:00");
+  while(d<=end){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+  return out;
+}
+const AGENDA_DATES = generateDates("2026-06-08","2026-07-20");
+
+function fmtDayHeader(d) {
+  return new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+}
+function fmtDayChip(d) {
+  return new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"});
+}
+
+function cType(id) { return COMMITMENT_TYPES.find(t=>t.id===id)||COMMITMENT_TYPES[COMMITMENT_TYPES.length-1]; }
+
+// ── Entry form modal ──────────────────────────────────────────────────────────
+function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
+  const [f, setF] = useState(entry);
+  const ct = cType(f.type);
+  const matchesOnDay = FIFA_MATCHES.filter(m=>m.date===date);
+  const availableTypes = userRole==="comercial" ? COMMITMENT_TYPES.filter(t=>t.id==="comercial")
+    : userRole==="redes" ? COMMITMENT_TYPES.filter(t=>t.id==="redes")
+    : COMMITMENT_TYPES;
+
+  function field(key, val) { setF(p=>({...p,[key]:val})); }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="bg-slate-800 rounded-t-2xl sm:rounded-2xl border border-slate-600 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
+        <div className="sticky top-0 bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+          <span className="font-semibold text-slate-100 text-sm">{entry.id?"✏️ Editar Compromisso":"+ Novo Compromisso"}</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg leading-none">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          {/* Person */}
+          {!entry.personId && (
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Pessoa</label>
+              <select value={f.personId||""} onChange={e=>field("personId",parseInt(e.target.value))}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none">
+                <option value="">Selecionar…</option>
+                {team.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Type + time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Tipo</label>
+              <select value={f.type} onChange={e=>field("type",e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none">
+                {availableTypes.map(t=><option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Horário (local)</label>
+              <input type="time" value={f.time} onChange={e=>field("time",e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+          </div>
+
+          {/* Transport time */}
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">🚌 Hora de transporte <span className="text-slate-600">(saída do hotel ou do estádio)</span></label>
+            <input type="time" value={f.transportTime||""} onChange={e=>field("transportTime",e.target.value)}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            {f.transportTime && (
+              <p className="text-xs text-slate-500 mt-1 pl-1">Equipa deve estar pronta às <span className="text-blue-400 font-medium">{f.transportTime}</span></p>
+            )}
+          </div>
+
+          {/* Custom type label */}
+          {f.type==="outro" && (
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Descrição do tipo</label>
+              <input value={f.customType} onChange={e=>field("customType",e.target.value)} placeholder="Ex: Reunião de produção"
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+          )}
+
+          {/* Match link (for "jogo" type) */}
+          {f.type==="jogo" && matchesOnDay.length>0 && (
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Jogo (opcional)</label>
+              <select value={f.matchId||""} onChange={e=>field("matchId",e.target.value?parseInt(e.target.value):null)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none">
+                <option value="">Sem jogo específico</option>
+                {matchesOnDay.map(m=><option key={m.id} value={m.id}>#{m.id} {tTeam(m.home)} × {tTeam(m.away)} ({m.city})</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">Notas / Detalhes</label>
+            <textarea value={f.notes} onChange={e=>field("notes",e.target.value)} rows={3}
+              placeholder="Detalhes, localização, observações, o que gravar…"
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none resize-none"/>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            {entry.id&&(
+              <button onClick={()=>{onDelete(entry.id);onClose();}}
+                className="px-3 py-2 text-red-400 hover:text-red-300 text-xs transition-colors">
+                🗑 Remover
+              </button>
+            )}
+            <div className="flex-1"/>
+            <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors">Cancelar</button>
+            <button onClick={()=>onSave(f)} disabled={!f.personId}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl text-sm font-medium transition-colors">
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AGENDA ───────────────────────────────────────────────────────────────────
+function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logistics, broadcastData }) {
+  const dateBarRef = useRef(null);
+  const [selectedDate, setSelectedDate] = useState("2026-06-11");
+  const [showForm, setShowForm]         = useState(false);
+  const [formEntry, setFormEntry]       = useState(null);
+
+  const dayEntries    = agenda.filter(e=>e.date===selectedDate);
+  const dayMatches    = FIFA_MATCHES.filter(m=>m.date===selectedDate);
+  const hasMatchToday = dayMatches.length > 0;
+
+  function blankEntry(personId=null) {
+    const defaultType = userRole==="comercial" ? "comercial" : userRole==="redes" ? "redes" : "jogo";
+    return {id:null,date:selectedDate,personId,type:defaultType,customType:"",time:"",transportTime:"",notes:"",matchId:null};
+  }
+
+  function openAdd(personId) { setFormEntry(blankEntry(personId)); setShowForm(true); }
+  function openEdit(e)       { setFormEntry({...e});                setShowForm(true); }
+
+  function saveEntry(f) {
+    if (!f.personId) return;
+    if (f.id) {
+      setAgenda(prev=>prev.map(e=>e.id===f.id?f:e));
+    } else {
+      setAgenda(prev=>[...prev,{...f,id:Date.now().toString()+Math.random()}]);
+    }
+    setShowForm(false);
+  }
+
+  function deleteEntry(id)  { setAgenda(prev=>prev.filter(e=>e.id!==id)); }
+  function toggleDone(id)   { setAgenda(prev=>prev.map(e=>e.id===id?{...e,done:!e.done}:e)); }
+
+  // Scroll selected date chip into view
+  useEffect(()=>{
+    if (!dateBarRef.current) return;
+    const btn = dateBarRef.current.querySelector('[data-active="true"]');
+    if (btn) btn.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});
+  }, [selectedDate]);
+
+  // ── Meeting info (hoisted so it's accessible in per-person loop too) ──
+  const [showMeetingEdit, setShowMeetingEdit] = useState(false);
+
+  const meetingEntry = agenda.find(e=>e.date===selectedDate && e.personId==="__team__" && e.type==="reuniao_equipa");
+  const meetingTime  = meetingEntry?.time || "";
+
+  function saveMeeting(updates) {
+    if (meetingEntry) {
+      setAgenda(prev=>prev.map(e=>e.id===meetingEntry.id ? {...e,...updates} : e));
+    } else {
+      setAgenda(prev=>[...prev,{id:"mtg_"+selectedDate,date:selectedDate,personId:"__team__",type:"reuniao_equipa",time:"",notes:"",matchId:null,...updates}]);
+    }
+  }
+
+  // Per-person city from logistics (used for auto mode detection)
+  const withCity = team.map(person=>{
+    const hotel = (logistics?.hotels||[]).find(h=>
+      h.checkIn<=selectedDate && h.checkOut>selectedDate && (h.personIds||[]).includes(person.id));
+    const flights = (logistics?.flights||[])
+      .filter(f=>f.date===selectedDate && (f.personIds||[]).includes(person.id))
+      .sort((a,b)=>(a.depTime||"").localeCompare(b.depTime||""));
+    const city = hotel?.city ||
+      (flights.length>0 ? flights[flights.length-1].to?.split(/[·\-]/)[0].trim() : null);
+    return {person, city};
+  });
+  const known        = withCity.filter(x=>x.city);
+  const uniqueCities = [...new Set(known.map(x=>x.city))];
+  const autoMeetMode = known.length===0 ? null : uniqueCities.length===1 ? "presencial" : "virtual";
+
+  // Override from meeting entry (admin can set manually)
+  const modeOverride   = meetingEntry?.modeOverride || null; // "presencial"|"virtual"|null
+  const meetMode       = modeOverride || autoMeetMode;
+
+  // Attendees: from meeting entry or all team
+  const attendeeIds    = meetingEntry?.attendeeIds || null; // null = all team
+  const effectiveAttendees = attendeeIds
+    ? team.filter(p=>attendeeIds.includes(p.id))
+    : team;
+
+  const modeColor = meetMode==="presencial" ? "#22c55e" : meetMode==="virtual" ? "#3b82f6" : "#64748b";
+  const modeLabel = meetMode==="presencial" ? "🤝 Presencial" : meetMode==="virtual" ? "💻 Virtual" : "❓ Localização desconhecida";
+  const modeDesc  = meetMode==="presencial"
+    ? (uniqueCities.length===1 ? `Toda a equipa em ${uniqueCities[0]}` : "Presencial")
+    : meetMode==="virtual" ? `Equipa em ${Math.max(uniqueCities.length,1)} cidades`
+    : "Sem dados de logística";
+
+  // ── Split matches: broadcast vs others ──
+  const broadcastMatches = dayMatches.filter(m=>broadcastData?.[m.id]?.enabled);
+  const otherMatches     = dayMatches.filter(m=>!broadcastData?.[m.id]?.enabled);
+
+  return (
+    <div className="space-y-3">
+      {showForm && formEntry && (
+        <EntryForm entry={formEntry} team={team} date={selectedDate} userRole={userRole}
+          onSave={saveEntry} onClose={()=>setShowForm(false)} onDelete={deleteEntry}/>
+      )}
+
+      {/* Date bar */}
+      <div ref={dateBarRef} className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+        {AGENDA_DATES.map(d=>{
+          const hasEntries  = agenda.some(e=>e.date===d);
+          const hasMatch    = FIFA_MATCHES.some(m=>m.date===d);
+          const hasLogistic = (logistics?.flights||[]).some(f=>f.date===d) ||
+                              (logistics?.hotels||[]).some(h=>h.checkIn===d);
+          const isActive    = d===selectedDate;
+          return (
+            <button key={d} data-active={isActive} onClick={()=>setSelectedDate(d)}
+              className={`flex flex-col items-center px-2.5 py-1.5 rounded-xl border text-xs whitespace-nowrap shrink-0 transition-all ${
+                isActive?"bg-emerald-600 border-emerald-500 text-white font-semibold"
+                :"border-slate-700 bg-slate-800/60 text-slate-400 hover:text-slate-200"
+              }`}>
+              <span>{fmtDayChip(d)}</span>
+              <div className="flex gap-1 mt-0.5">
+                {hasMatch    && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"/>}
+                {hasEntries  && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"/>}
+                {hasLogistic && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"/>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Day header */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <div className="text-sm font-semibold text-slate-200 capitalize">{fmtDayHeader(selectedDate)}</div>
+          {hasMatchToday && (
+            <div className="text-xs text-amber-400 mt-0.5">
+              ⚽ {dayMatches.length} jogo{dayMatches.length!==1?"s":""} neste dia
+            </div>
+          )}
+        </div>
+        {(isAdmin || userRole==="transmite" || userRole==="comercial" || userRole==="redes")&&(
+          <button onClick={()=>openAdd(null)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors">
+            + Compromisso
+          </button>
+        )}
+      </div>
+
+      {/* ── Reunião de Equipa ── */}
+      <div className="rounded-2xl border overflow-hidden" style={{borderColor:modeColor+"44"}}>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3" style={{background:modeColor+"11"}}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+            style={{background:modeColor+"22",color:modeColor}}>🗓️</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-slate-200">Reunião de Equipa</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium border"
+                style={{background:modeColor+"22",color:modeColor,borderColor:modeColor+"44"}}>
+                {modeLabel}
+              </span>
+              {modeOverride && (
+                <span className="text-xs text-slate-500 italic">manual</span>
+              )}
+            </div>
+            <div className="text-xs mt-0.5" style={{color:modeColor+"cc"}}>{modeDesc}</div>
+          </div>
+          {/* Time */}
+          {isAdmin ? (
+            <input type="time" value={meetingTime}
+              onChange={e=>saveMeeting({time:e.target.value})}
+              className="text-sm font-semibold bg-slate-700/60 border border-slate-600 rounded-xl px-2.5 py-1.5 text-slate-200 outline-none shrink-0 w-28"
+              title="Horário da reunião"/>
+          ) : meetingTime ? (
+            <span className="text-sm font-semibold text-slate-200 shrink-0">🕐 {meetingTime}</span>
+          ) : null}
+          {/* Edit toggle — admin only */}
+          {isAdmin && (
+            <button onClick={()=>setShowMeetingEdit(v=>!v)}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${showMeetingEdit?"bg-emerald-500/20 text-emerald-400":"text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"}`}
+              title="Editar reunião">✏️</button>
+          )}
+        </div>
+
+        {/* Editable panel — admin only */}
+        {isAdmin && showMeetingEdit && (
+          <div className="px-4 py-3 bg-slate-800/60 border-t border-slate-700/40 space-y-3">
+            {/* Mode selector */}
+            <div>
+              <div className="text-xs text-slate-400 mb-1.5 font-medium">Formato</div>
+              <div className="flex gap-2">
+                {[
+                  {val:null,    label:"🔄 Auto",        desc:"Definido pela logística"},
+                  {val:"presencial", label:"🤝 Presencial", desc:"Equipa no mesmo local"},
+                  {val:"virtual",    label:"💻 Virtual",    desc:"Online / por videochamada"},
+                ].map(opt=>(
+                  <button key={String(opt.val)} onClick={()=>saveMeeting({modeOverride:opt.val})}
+                    className={`flex-1 px-2 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
+                      modeOverride===opt.val
+                        ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300"
+                        : "border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+                    }`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Attendees */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-slate-400 font-medium">Participantes</span>
+                <button onClick={()=>saveMeeting({attendeeIds:null})}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                  Todos
+                </button>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {team.map(p=>{
+                  const isIn = attendeeIds===null || attendeeIds.includes(p.id);
+                  function toggleAttendee() {
+                    const cur = attendeeIds===null ? team.map(x=>x.id) : [...attendeeIds];
+                    const next = cur.includes(p.id) ? cur.filter(id=>id!==p.id) : [...cur,p.id];
+                    saveMeeting({attendeeIds: next.length===team.length ? null : next});
+                  }
+                  return (
+                    <button key={p.id} onClick={toggleAttendee}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                        isIn
+                          ? "border-current"
+                          : "border-slate-700 text-slate-600 opacity-50"
+                      }`}
+                      style={isIn ? {color:p.color,background:p.color+"22",borderColor:p.color+"55"} : {}}>
+                      <Avatar name={p.name} color={isIn?p.color:"#64748b"} size="sm"/>
+                      {p.name.split(" ")[0]}
+                      {!isIn && <span className="text-slate-600">✕</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Attendees display row */}
+        <div className="px-4 py-2.5 flex gap-2 flex-wrap bg-slate-800/40">
+          {effectiveAttendees.length > 0 ? effectiveAttendees.map(person=>{
+            const wc = withCity.find(x=>x.person.id===person.id);
+            const city = wc?.city;
+            return (
+              <div key={person.id} className="flex items-center gap-1.5 text-xs bg-slate-700/50 border border-slate-600/50 rounded-full px-2.5 py-1">
+                <Avatar name={person.name} color={person.color} size="sm"/>
+                <span style={{color:person.color}} className="font-medium">{person.name.split(" ")[0]}</span>
+                <span className="text-slate-400">{city ? `· 📍 ${city}` : "· ?"}</span>
+              </div>
+            );
+          }) : (
+            <span className="text-xs text-slate-600 italic">Sem equipa definida.</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── EM DIRETO NA LIVEMODETV ── */}
+      {broadcastMatches.length > 0 && (
+        <div className="rounded-2xl border border-red-600/40 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 bg-red-600/10">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 bg-red-600/20 text-red-400">📡</div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-bold text-red-300 uppercase tracking-wide">EM DIRETO NA LIVEMODETV</span>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-700/30 bg-slate-800/40">
+            {broadcastMatches.map(m=>{
+              const bc = broadcastData[m.id];
+              const koLocal   = m.time;
+              const koPT      = ptTime(m.time, m.city);
+              const preLocal  = bc.preGame  ? localFromPT(bc.preGame,  m.city) : null;
+              const postLocal = bc.postGame ? localFromPT(bc.postGame, m.city) : null;
+              const md        = pitchData?.[m.id];
+              const contracted = md?.inLoco
+                ? Object.entries(md.positions||{})
+                    .map(([posId,pd])=>({posId,pd,cat:PITCH_POSITIONS_CATALOG.find(p=>p.id===posId)}))
+                    .filter(x=>x.cat)
+                    .sort((a,b)=>(a.pd.time||"99:99").localeCompare(b.pd.time||"99:99"))
+                : [];
+              function TimeCell({label, pt, local}) {
+                return (
+                  <div className="flex flex-col gap-0.5 min-w-[7rem]">
+                    <span className="text-slate-500 text-xs">{label}</span>
+                    {pt ? (
+                      <>
+                        <span className="font-semibold text-slate-200 text-xs">🇵🇹 {pt} <span className="text-slate-500 font-normal">PT</span></span>
+                        {local && <span className="text-slate-400 text-xs">⏰ {local} <span className="text-slate-500">local</span></span>}
+                      </>
+                    ) : <span className="text-slate-600 italic text-xs">—</span>}
+                  </div>
+                );
+              }
+              return (
+                <div key={m.id} className="px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="font-bold text-amber-400">#{m.id}</span>
+                    <span className="font-semibold text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
+                    <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
+                    <span className="text-slate-500">· {m.city}</span>
+                  </div>
+                  <div className="flex gap-4 flex-wrap">
+                    <TimeCell label="⏱ Início pré-jogo" pt={bc.preGame||null} local={preLocal}/>
+                    <TimeCell label="⚽ Kick-off"        pt={koPT}            local={koLocal}/>
+                    <TimeCell label="🏁 Fim pós-jogo"   pt={bc.postGame||null} local={postLocal}/>
+                  </div>
+                  {contracted.length>0 && (
+                    <div className="border-t border-slate-700/30 pt-2 space-y-1">
+                      {contracted.map(({posId,pd,cat})=>{
+                        const people = (pd.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+                        return (
+                          <div key={posId} className="flex items-center gap-2 text-xs flex-wrap">
+                            <span>{cat.emoji}</span>
+                            <span className="text-slate-300">{cat.label}</span>
+                            {pd.time&&<span className="text-slate-500">🕐 {pd.time} / 🇵🇹 {ptTime(pd.time,m.city)}</span>}
+                            <div className="flex gap-1 flex-wrap">
+                              {people.map(p=>(
+                                <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                                  className="px-2 py-0.5 rounded-full border font-medium">{p.name.split(" ")[0]}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── OUTRAS PARTIDAS ── */}
+      {otherMatches.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/20 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/8">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 bg-amber-500/15 text-amber-400">⚽</div>
+            <span className="text-sm font-bold text-amber-300 uppercase tracking-wide">OUTRAS PARTIDAS</span>
+          </div>
+          <div className="divide-y divide-slate-700/30 bg-slate-800/40">
+            {otherMatches.map(m=>{
+              const md = pitchData?.[m.id];
+              const contracted = md?.inLoco
+                ? Object.entries(md.positions||{})
+                    .map(([posId,pd])=>({posId,pd,cat:PITCH_POSITIONS_CATALOG.find(p=>p.id===posId)}))
+                    .filter(x=>x.cat)
+                    .sort((a,b)=>(a.pd.time||"99:99").localeCompare(b.pd.time||"99:99"))
+                : [];
+              return (
+                <div key={m.id} className="px-4 py-3 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="font-bold text-amber-400">#{m.id}</span>
+                    <span className="font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</span>
+                    <span className="text-slate-400">· {m.city} · ⏰ {m.time} <span className="text-slate-500">local</span> / 🇵🇹 {ptTime(m.time,m.city)} <span className="text-slate-500">PT</span></span>
+                    <Badge color={STAGE_COLORS[m.stage]||"#64748b"}>{tStage(m.stage)}</Badge>
+                    {md?.inLoco && <span className="bg-emerald-600/20 border border-emerald-700/40 text-emerald-400 px-2 py-0.5 rounded-lg">📋 In loco</span>}
+                  </div>
+                  {contracted.length>0 && (
+                    <div className="space-y-1 pl-1">
+                      {contracted.map(({posId,pd,cat})=>{
+                        const people = (pd.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+                        return (
+                          <div key={posId} className="flex items-center gap-2 text-xs flex-wrap">
+                            <span>{cat.emoji}</span>
+                            <span className="text-slate-300">{cat.label}</span>
+                            {pd.time&&<span className="text-slate-500">🕐 {pd.time} / 🇵🇹 {ptTime(pd.time,m.city)}</span>}
+                            <div className="flex gap-1 flex-wrap">
+                              {people.map(p=>(
+                                <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                                  className="px-2 py-0.5 rounded-full border font-medium">{p.name.split(" ")[0]}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Team members for this day */}
+      {team.length===0 && (
+        <div className="py-10 text-center text-slate-500 text-sm">Adicione membros na aba Equipa.</div>
+      )}
+
+      <div className="space-y-3">
+        {team.map(person=>{
+          const entries = dayEntries.filter(e=>e.personId===person.id)
+            .sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+
+          // ── Auto logistics for this person ──
+          const logFlights = (logistics?.flights||[])
+            .filter(f=>f.date===selectedDate && (f.personIds||[]).includes(person.id))
+            .sort((a,b)=>(a.depTime||"").localeCompare(b.depTime||""));
+          const logHotel = (logistics?.hotels||[])
+            .find(h=>h.checkIn<=selectedDate && h.checkOut>selectedDate && (h.personIds||[]).includes(person.id)) || null;
+
+          // City: prefer hotel city, fall back to last flight destination
+          const personCity = logHotel?.city ||
+            (logFlights.length>0 ? logFlights[logFlights.length-1].to?.split(/[·\-]/)[0].trim() : null);
+
+          // Merge manual entries with flights into a single sorted timeline
+          const timelineItems = [
+            ...entries.map(e=>({_k:"manual", _sort:e.time||"99:99", data:e})),
+            ...logFlights.map(f=>({_k:"flight", _sort:f.depTime||"99:99", data:f})),
+          ].sort((a,b)=>a._sort.localeCompare(b._sort));
+
+          const hasAnything = timelineItems.length>0 || logHotel;
+
+          return (
+            <div key={person.id} className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+              {/* Person header */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/40">
+                <Avatar name={person.name} color={person.color} size="sm"/>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-200">{person.name}</span>
+                    {person.role&&<span className="text-xs text-slate-500">{person.role}</span>}
+                    {personCity&&(
+                      <span className="flex items-center gap-1 text-xs bg-slate-700/60 border border-slate-600/50 text-slate-300 px-2 py-0.5 rounded-full">
+                        📍 {personCity}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {(isAdmin || userRole==="transmite" || userRole==="comercial" || userRole==="redes")&&(
+                  <button onClick={()=>openAdd(person.id)}
+                    className="text-xs text-slate-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded-lg hover:bg-emerald-400/10 shrink-0">
+                    + adicionar
+                  </button>
+                )}
+              </div>
+
+              {/* Timeline: sempre começa com Reunião de Equipa (se participar), depois manual entries + auto flights */}
+              <div className="divide-y divide-slate-700/30">
+                {/* Reunião de Equipa — sempre primeiro, só se a pessoa participar */}
+                {(attendeeIds===null || attendeeIds.includes(person.id)) && (
+                  <div className="px-4 py-2.5 flex items-center gap-3" style={{background:modeColor+"08"}}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0"
+                      style={{background:modeColor+"22",color:modeColor}}>🗓️</div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-slate-300">Reunião de Equipa</span>
+                      <span className="text-xs ml-2 px-1.5 py-0.5 rounded-full font-medium"
+                        style={{background:modeColor+"22",color:modeColor}}>{modeLabel}</span>
+                    </div>
+                    {meetingTime
+                      ? <span className="text-xs font-semibold text-slate-200 shrink-0">🕐 {meetingTime}</span>
+                      : <span className="text-xs text-slate-600 italic shrink-0">hora por definir</span>}
+                  </div>
+                )}
+                {!hasAnything && (
+                  <div className="px-4 py-3 text-xs text-slate-600 italic">Sem outros compromissos neste dia.</div>
+                )}
+                  {timelineItems.map(item=>{
+                    if (item._k==="manual") {
+                      const e = item.data;
+                      const ct = cType(e.type);
+                      const linkedMatch = e.matchId ? FIFA_MATCHES.find(m=>m.id===e.matchId) : null;
+                      const canEdit = isAdmin || userRole==="transmite" ||
+                        (userRole==="comercial" && e.type==="comercial") ||
+                        (userRole==="redes" && e.type==="redes");
+                      return <EntryCard key={e.id} e={e} ct={ct} linkedMatch={linkedMatch}
+                               isAdmin={isAdmin} canEdit={canEdit} onEdit={()=>openEdit(e)} onToggleDone={()=>toggleDone(e.id)}/>;
+                    }
+                    // Auto flight entry
+                    const f = item.data;
+                    return (
+                      <div key={"f"+f.id} className="px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 mt-0.5"
+                            style={{background:"#3b82f622",color:"#3b82f6"}}>✈️</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-slate-200">
+                                {f.from||"?"} → {f.to||"?"}
+                              </span>
+                              {f.flightNo&&<span className="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full">{f.flightNo}</span>}
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5 flex gap-3 flex-wrap">
+                              {f.depTime&&<span>🛫 {f.depTime}</span>}
+                              {f.arrTime&&<span>🛬 {f.arrTime}</span>}
+                            </div>
+                            {f.notes&&<div className="text-xs text-slate-500 mt-0.5">{f.notes}</div>}
+                          </div>
+                          <span className="text-xs text-blue-400 shrink-0 mt-1">auto</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Hotel tonight — always at the bottom */}
+                  {logHotel&&(
+                    <div className="px-4 py-3 bg-teal-950/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{background:"#14b8a622",color:"#14b8a6"}}>🌙</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-slate-200">{logHotel.name||"—"}</span>
+                            {logHotel.city&&<span className="text-xs text-slate-400">📍 {logHotel.city}</span>}
+                          </div>
+                          {logHotel.notes&&<div className="text-xs text-slate-500 mt-0.5">{logHotel.notes}</div>}
+                        </div>
+                        <span className="text-xs text-teal-400 shrink-0">auto</span>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EntryCard({ e, ct, linkedMatch, isAdmin, canEdit, onEdit, onToggleDone }) {
+  const done = !!e.done;
+  return (
+    <div className={`px-4 py-3 transition-colors ${done ? "bg-slate-800/30" : ""}`}>
+      <div className="flex items-start gap-3">
+        {/* Done toggle — admin only */}
+        {isAdmin && (
+          <button onClick={onToggleDone}
+            title={done ? "Marcar como pendente" : "Marcar como feito"}
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1.5 transition-colors ${
+              done
+                ? "bg-emerald-500 border-emerald-500 text-white"
+                : "border-slate-600 hover:border-emerald-500 text-transparent hover:text-emerald-500"
+            }`}>
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-2.5 h-2.5">
+              <polyline points="1.5,6 4.5,9 10.5,3"/>
+            </svg>
+          </button>
+        )}
+        <div style={{background:done ? "#64748b22" : ct.color+"22", color: done ? "#64748b" : ct.color}}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 mt-0.5">
+          {ct.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-semibold ${done ? "line-through text-slate-500" : "text-slate-200"}`}>
+              {e.type==="outro"&&e.customType ? e.customType : ct.label}
+            </span>
+            {e.time&&<span className={`text-xs ${done ? "text-slate-600" : "text-slate-500"}`}>🕐 {e.time}</span>}
+            {done && <span className="text-xs text-emerald-600 font-medium">✓ feito</span>}
+          </div>
+          {e.transportTime&&(
+            <div className={`text-xs mt-0.5 flex items-center gap-1 font-medium ${done ? "text-slate-600" : "text-blue-400"}`}>
+              🚌 Transporte: {e.transportTime}
+            </div>
+          )}
+          {linkedMatch&&(
+            <div className={`text-xs mt-0.5 ${done ? "text-slate-600" : "text-amber-400"}`}>
+              ⚽ #{linkedMatch.id} {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)} · {linkedMatch.city}
+            </div>
+          )}
+          {e.notes&&<div className={`text-xs mt-1 whitespace-pre-wrap ${done ? "text-slate-600" : "text-slate-400"}`}>{e.notes}</div>}
+        </div>
+        {(canEdit ?? isAdmin)&&(
+          <button onClick={onEdit} className="p-1 text-slate-600 hover:text-slate-300 transition-colors shrink-0">✏️</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PITCH TAB ────────────────────────────────────────────────────────────────
+function PitchTab({ team, isAdmin, userRole, pitchData, setPitchData }) {
+  const [expandedId,  setExpandedId]  = useState(null);
+  const [stageFilter, setStageFilter] = useState("all");
+
+  function getMD(mid)       { return pitchData[mid] || {inLoco:false, positions:{}}; }
+  function setMD(mid, d)    { setPitchData(p=>({...p, [mid]:d})); }
+
+  function toggleInLoco(mid) {
+    const d = getMD(mid);
+    setMD(mid, {...d, inLoco:!d.inLoco});
+    if (!d.inLoco) setExpandedId(mid);
+  }
+
+  function togglePos(mid, posId) {
+    const d = getMD(mid);
+    const pos = {...d.positions};
+    if (pos[posId]) { delete pos[posId]; }
+    else            { pos[posId] = {time:"", personIds:[], notes:""}; }
+    setMD(mid, {...d, positions:pos});
+  }
+
+  function updatePos(mid, posId, updates) {
+    const d = getMD(mid);
+    setMD(mid, {...d, positions:{...d.positions, [posId]:{...d.positions[posId], ...updates}}});
+  }
+
+  function matchCost(mid) {
+    return Object.keys(getMD(mid).positions).reduce((s,pid)=>s+(PITCH_POSITIONS_CATALOG.find(p=>p.id===pid)?.price||0),0);
+  }
+
+  const inLocoMatches = FIFA_MATCHES.filter(m=>getMD(m.id).inLoco);
+  const totalCost     = inLocoMatches.reduce((s,m)=>s+matchCost(m.id), 0);
+  const totalPos      = inLocoMatches.reduce((s,m)=>s+Object.keys(getMD(m.id).positions).length, 0);
+  const baseMatches   = (isAdmin || userRole==="financeiro") ? FIFA_MATCHES : FIFA_MATCHES.filter(m=>getMD(m.id).inLoco);
+  const filtered      = stageFilter==="all" ? baseMatches : baseMatches.filter(m=>m.stage===stageFilter);
+
+  // Group catalog by category
+  const bycat = {};
+  PITCH_POSITIONS_CATALOG.forEach(p=>{ if(!bycat[p.cat]) bycat[p.cat]=[]; bycat[p.cat].push(p); });
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 text-center">
+          <div className="text-2xl font-bold text-emerald-400">{inLocoMatches.length}</div>
+          <div className="text-xs text-slate-400 mt-0.5">Jogos in loco</div>
+        </div>
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 text-center">
+          <div className="text-2xl font-bold text-blue-400">{totalPos}</div>
+          <div className="text-xs text-slate-400 mt-0.5">Posições</div>
+        </div>
+        {isAdmin && (
+          <div className="bg-slate-800/70 rounded-2xl border border-amber-700/30 p-3 text-center">
+            <div className="text-lg font-bold text-amber-400">${totalCost.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Custo total 🔒</div>
+          </div>
+        )}
+        {!isAdmin && (
+          <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 text-center opacity-30">
+            <div className="text-lg font-bold text-slate-500">—</div>
+            <div className="text-xs text-slate-500 mt-0.5">Orçamento</div>
+          </div>
+        )}
+      </div>
+
+      {/* Stage filter */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+        {["all",...STAGE_ORDER].map(s=>(
+          <button key={s} onClick={()=>setStageFilter(s)}
+            className={`shrink-0 px-3 py-1.5 rounded-xl border text-xs transition-all ${stageFilter===s?"bg-emerald-600 border-emerald-500 text-white":"bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200"}`}>
+            {s==="all"?"Todos os jogos":tStage(s)}
+          </button>
+        ))}
+      </div>
+
+      {/* Match list */}
+      <div className="space-y-2">
+        {filtered.map(m=>{
+          const md       = getMD(m.id);
+          const posCount = Object.keys(md.positions).length;
+          const cost     = matchCost(m.id);
+          const isExp    = expandedId===m.id;
+
+          return (
+            <div key={m.id}
+              className={`bg-slate-800/70 rounded-2xl border overflow-hidden transition-all ${md.inLoco?"border-emerald-700/40":"border-slate-700/50"}`}>
+
+              {/* Match header row */}
+              <div className="flex items-center gap-2 px-3 py-2.5">
+                <span className="text-xs text-slate-600 w-6 shrink-0 text-center">#{m.id}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-200 truncate">{tTeam(m.home)} × {tTeam(m.away)}</div>
+                  <div className="text-xs text-slate-500">{fmtDate(m.date)} · {m.city}</div>
+                </div>
+                {md.inLoco && posCount>0 && (
+                  <div className="text-xs text-slate-400 shrink-0 hidden sm:flex items-center gap-1">
+                    <span>{posCount} pos.</span>
+                    {isAdmin && cost>0 && <span className="text-amber-400">${cost.toLocaleString()}</span>}
+                  </div>
+                )}
+                {isAdmin ? (
+                  <button onClick={()=>toggleInLoco(m.id)}
+                    className={`shrink-0 px-2.5 py-1 rounded-xl text-xs font-medium border transition-all ${md.inLoco?"bg-emerald-600/20 border-emerald-600/40 text-emerald-400":"bg-slate-700/50 border-slate-600 text-slate-500 hover:text-slate-300"}`}>
+                    {md.inLoco?"✓ In loco":"In loco?"}
+                  </button>
+                ) : md.inLoco && (
+                  <span className="shrink-0 text-xs bg-emerald-600/20 border border-emerald-700/40 text-emerald-400 px-2 py-0.5 rounded-xl">In loco</span>
+                )}
+                {md.inLoco && (
+                  <button onClick={()=>setExpandedId(isExp?null:m.id)}
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-all text-sm">
+                    {isExp?"▲":"▼"}
+                  </button>
+                )}
+              </div>
+
+              {/* Positions detail (expanded) */}
+              {md.inLoco && isExp && (
+                <div className="border-t border-slate-700/50 p-3 space-y-4">
+                  {Object.entries(bycat).map(([cat, positions])=>{
+                    const catMeta = PITCH_CAT_META[cat] || {label:cat, color:"#94a3b8"};
+                    return (
+                      <div key={cat}>
+                        <div style={{color:catMeta.color}} className="text-xs font-semibold uppercase tracking-wide mb-2">
+                          {catMeta.label}
+                        </div>
+                        <div className="space-y-1.5">
+                          {positions.map(pos=>{
+                            const contracted = !!md.positions[pos.id];
+                            const pd         = md.positions[pos.id] || {time:"",personIds:[],notes:""};
+                            return (
+                              <div key={pos.id}
+                                className={`rounded-xl border overflow-hidden transition-all ${contracted?"border-blue-700/40 bg-blue-950/20":"border-slate-700/30 bg-slate-800/40"}`}>
+                                {/* Position row */}
+                                <div className="flex items-center gap-2 px-3 py-2">
+                                  {isAdmin ? (
+                                    <button onClick={()=>togglePos(m.id, pos.id)}
+                                      className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-all ${contracted?"bg-blue-600 border-blue-600":"border-slate-600 hover:border-blue-500"}`}>
+                                      {contracted&&<span className="text-white text-xs leading-none">✓</span>}
+                                    </button>
+                                  ) : (
+                                    <span className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center ${contracted?"bg-blue-600 border-blue-600":"border-slate-600"}`}>
+                                      {contracted&&<span className="text-white text-xs leading-none">✓</span>}
+                                    </span>
+                                  )}
+                                  <span className="text-base shrink-0">{pos.emoji}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <span className={`text-xs ${contracted?"text-slate-200":"text-slate-400"}`}>{pos.label}</span>
+                                    {pos.note&&<span className="text-xs text-slate-600 ml-1.5">· {pos.note}</span>}
+                                  </div>
+                                  {isAdmin && pos.price>0 && (
+                                    <span className={`text-xs shrink-0 font-medium ${contracted?"text-amber-400":"text-slate-600"}`}>
+                                      ${pos.price}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Assignment row (when contracted) */}
+                                {contracted && (
+                                  <div className="px-3 pb-2.5 pt-1.5 border-t border-slate-700/40 space-y-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-slate-500 shrink-0">🕐 Hora:</span>
+                                      {isAdmin ? (
+                                        <input type="time" value={pd.time||""} onChange={e=>updatePos(m.id,pos.id,{time:e.target.value})}
+                                          className="text-xs bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-slate-200 outline-none"/>
+                                      ) : (
+                                        <span className="text-xs text-slate-300">{pd.time||"—"}</span>
+                                      )}
+                                      {pd.time && <span className="text-xs text-blue-400">🇵🇹 {ptTime(pd.time, m.city)}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-slate-500 shrink-0">👤 Quem:</span>
+                                      {team.length===0
+                                        ? <span className="text-xs text-slate-600 italic">Sem equipa</span>
+                                        : team.map(p=>{
+                                            const sel = (pd.personIds||[]).includes(p.id);
+                                            return (
+                                              <button key={p.id} onClick={()=>{
+                                                  if(!isAdmin) return;
+                                                  const ids = sel ? (pd.personIds||[]).filter(id=>id!==p.id) : [...(pd.personIds||[]),p.id];
+                                                  updatePos(m.id,pos.id,{personIds:ids});
+                                                }}
+                                                style={{background:sel?p.color+"33":"",borderColor:sel?p.color:"#475569",color:sel?p.color:"#94a3b8"}}
+                                                className={`text-xs px-2.5 py-0.5 rounded-full border transition-all ${isAdmin?"hover:opacity-80 cursor-pointer":"cursor-default"}`}>
+                                                {p.name.split(" ")[0]}
+                                              </button>
+                                            );
+                                          })
+                                      }
+                                    </div>
+                                    {isAdmin && (
+                                      <input value={pd.notes||""} onChange={e=>updatePos(m.id,pos.id,{notes:e.target.value})}
+                                        placeholder="Notas (posição específica, instruções…)"
+                                        className="w-full text-xs bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-slate-200 placeholder-slate-600 outline-none"/>
+                                    )}
+                                    {!isAdmin && pd.notes && (
+                                      <div className="text-xs text-slate-400">📝 {pd.notes}</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Match cost summary */}
+                  {posCount>0 && (
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-700/40 text-xs">
+                      <span className="text-slate-500">{posCount} posição{posCount!==1?"s":""} contratada{posCount!==1?"s":""}</span>
+                      {isAdmin && <span className="text-amber-400 font-semibold">${cost.toLocaleString()}</span>}
+                    </div>
+                  )}
+
+                  {/* Escala do Jogo */}
+                  {(()=>{
+                    const personMap = {};
+                    Object.entries(md.positions).forEach(([posId,pd])=>{
+                      const cat = PITCH_POSITIONS_CATALOG.find(p=>p.id===posId);
+                      if (!cat) return;
+                      (pd.personIds||[]).forEach(pid=>{
+                        if (!personMap[pid]) personMap[pid]=[];
+                        personMap[pid].push({posId, cat, time:pd.time||""});
+                      });
+                    });
+                    const assigned = team.filter(p=>personMap[p.id]);
+                    if (assigned.length===0) return null;
+                    return (
+                      <div className="pt-3 border-t border-slate-700/40">
+                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">📋 Escala do Jogo</div>
+                        <div className="space-y-1.5">
+                          {assigned.map(p=>{
+                            const slots = (personMap[p.id]||[]).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+                            return (
+                              <div key={p.id} style={{borderColor:p.color+"55"}} className="rounded-xl border bg-slate-800/40 px-3 py-2">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:p.color}}/>
+                                  <span className="text-xs font-semibold text-slate-200">{p.name}</span>
+                                  {p.role&&<span className="text-xs text-slate-500">· {p.role}</span>}
+                                  <span className="ml-auto text-xs text-slate-500">{slots.length} pos.</span>
+                                </div>
+                                <div className="space-y-0.5 pl-4">
+                                  {slots.map(({posId,cat,time})=>(
+                                    <div key={posId} className="flex items-center gap-2 text-xs">
+                                      <span className="shrink-0">{cat.emoji}</span>
+                                      <span className="flex-1 text-slate-300">{cat.label}{cat.note?<span className="text-slate-500"> · {cat.note}</span>:null}</span>
+                                      {time
+                                        ? <span className="text-blue-400 shrink-0 font-mono">{time}</span>
+                                        : <span className="text-slate-600 shrink-0 text-xs">sem hora</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── LOGISTICS ────────────────────────────────────────────────────────────────
+const LS_LOGISTICS_KEY = "livemode_mundial_logistics_v3";
+function loadLogistics() {
+  try { const s=localStorage.getItem(LS_LOGISTICS_KEY); if(s) return JSON.parse(s); } catch {}
+  return { flights:[], hotels:[] };
+}
+// flights: [{ id, date, flightNo, from, to, depTime, arrTime, price, notes, personIds }]
+// hotels:  [{ id, city, name, checkIn, checkOut, price, notes, personIds }]
+
+const BLANK_FLIGHT_L = {id:null,date:"",flightNo:"",from:"",to:"",depTime:"",arrTime:"",pricePerPerson:0,notes:"",personIds:[]};
+// Total do voo = pricePerPerson × nº de pessoas (retrocompat: usa price se pricePerPerson ausente)
+function flightCost(f) {
+  if ((f.pricePerPerson||0) > 0) return (f.pricePerPerson||0) * Math.max(1,(f.personIds||[]).length);
+  return f.price || 0;
+}
+const BLANK_HOTEL_L  = {id:null,city:"",name:"",checkIn:"",checkOut:"",price:0,notes:"",personIds:[]};
+
+function logNights(checkIn, checkOut) {
+  if (!checkIn||!checkOut) return 0;
+  const d1=new Date(checkIn+"T12:00:00Z"), d2=new Date(checkOut+"T12:00:00Z");
+  return Math.max(0, Math.round((d2-d1)/(1000*60*60*24)));
+}
+
+// Date range: Jun 8 → Jul 22 2026
+const WC_DATES = (()=>{
+  const arr=[];
+  const cur=new Date("2026-06-08T12:00:00Z");
+  const end=new Date("2026-07-22T12:00:00Z");
+  while(cur<=end){ arr.push(cur.toISOString().slice(0,10)); cur.setUTCDate(cur.getUTCDate()+1); }
+  return arr;
+})();
+const DOW_PT = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+function dowPT(dateStr) { return DOW_PT[new Date(dateStr+"T12:00:00Z").getUTCDay()]; }
+
+function PersonPicker({ team, personIds, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {team.map(p=>{
+        const sel = (personIds||[]).includes(p.id);
+        return (
+          <button key={p.id} onClick={()=>{
+            const ids = sel ? personIds.filter(id=>id!==p.id) : [...personIds, p.id];
+            onChange(ids);
+          }}
+            style={{background:sel?p.color+"33":"",borderColor:sel?p.color:"#475569",color:sel?p.color:"#94a3b8"}}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl border transition-all hover:opacity-80">
+            <Avatar name={p.name} color={p.color} size="sm"/>
+            {p.name.split(" ")[0]}
+          </button>
+        );
+      })}
+      {team.length===0 && <span className="text-xs text-slate-600 italic">Sem equipa definida</span>}
+    </div>
+  );
+}
+
+function FlightModal({ data, team, isAdmin, onSave, onDelete, onClose }) {
+  const [f, setF] = useState({...data});
+  const F = (k,v) => setF(p=>({...p,[k]:v}));
+  const nPax       = (f.personIds||[]).length || 1;
+  const totalFlight = (f.pricePerPerson||0) * nPax;
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="bg-slate-800 rounded-t-2xl sm:rounded-2xl border border-slate-600 w-full sm:max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
+          <span className="font-semibold text-slate-100">✈️ {f.id?"Editar Voo":"Adicionar Voo"}</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">📅 Data</label>
+              <input type="date" value={f.date} onChange={e=>F("date",e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">✈️ Nº do voo</label>
+              <input value={f.flightNo} onChange={e=>F("flightNo",e.target.value)} placeholder="Ex: TP312"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🛫 Origem</label>
+              <input value={f.from} onChange={e=>F("from",e.target.value)} placeholder="Ex: LIS · Lisboa"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🛬 Destino</label>
+              <input value={f.to} onChange={e=>F("to",e.target.value)} placeholder="Ex: JFK · Nova Iorque"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🕐 Partida (hora local)</label>
+              <input type="time" value={f.depTime} onChange={e=>F("depTime",e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🕐 Chegada (hora local)</label>
+              <input type="time" value={f.arrTime} onChange={e=>F("arrTime",e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+          </div>
+          {isAdmin && (
+            <div>
+              <label className="text-xs text-amber-400 mb-1 block">💰 Valor por pessoa (EUR) 🔒</label>
+              <input type="number" min="0" value={f.pricePerPerson||""} onChange={e=>F("pricePerPerson",Number(e.target.value))}
+                placeholder="0" className="w-full px-2 py-1.5 bg-slate-700 border border-amber-700/40 rounded-xl text-sm text-amber-300 placeholder-slate-500 outline-none"/>
+              {(f.pricePerPerson||0) > 0 && (
+                <div className="mt-1.5 flex items-center justify-between text-xs px-1">
+                  <span className="text-slate-500">€{f.pricePerPerson} × {nPax} pessoa{nPax!==1?"s":""}</span>
+                  <span className="text-amber-400 font-semibold">= €{totalFlight.toLocaleString("pt-PT")} total</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-slate-400 mb-2 block">👥 Quem viaja neste voo</label>
+            <PersonPicker team={team} personIds={f.personIds||[]} onChange={ids=>F("personIds",ids)}/>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">📝 Notas</label>
+            <textarea value={f.notes} onChange={e=>F("notes",e.target.value)} rows={2}
+              placeholder="Escala, bagagem extra, referência da reserva…"
+              className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none resize-none"/>
+          </div>
+          <div className="flex gap-2 pt-1">
+            {f.id&&<button onClick={()=>{onDelete(f.id);onClose();}} className="px-3 py-2 text-red-400 hover:text-red-300 text-xs">🗑 Remover</button>}
+            <div className="flex-1"/>
+            <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm">Cancelar</button>
+            <button onClick={()=>{onSave({...f,id:f.id||null});onClose();}}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HotelModal({ data, team, isAdmin, onSave, onDelete, onClose }) {
+  const [h, setH] = useState({...data});
+  const H = (k,v) => setH(p=>({...p,[k]:v}));
+  const nights = logNights(h.checkIn, h.checkOut);
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="bg-slate-800 rounded-t-2xl sm:rounded-2xl border border-slate-600 w-full sm:max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
+          <span className="font-semibold text-slate-100">🏨 {h.id?"Editar Hotel":"Adicionar Hotel"}</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg">✕</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🏙️ Cidade</label>
+              <input value={h.city} onChange={e=>H("city",e.target.value)} placeholder="Ex: Nova Iorque"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">🏨 Nome do hotel</label>
+              <input value={h.name} onChange={e=>H("name",e.target.value)} placeholder="Ex: Marriott Times Square"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">📅 Check-in</label>
+              <input type="date" value={h.checkIn} onChange={e=>H("checkIn",e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">📅 Check-out</label>
+              <input type="date" value={h.checkOut} onChange={e=>H("checkOut",e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+          </div>
+          {nights>0&&<div className="text-xs text-center text-slate-400">🌙 {nights} noite{nights!==1?"s":""}</div>}
+          {isAdmin && (
+            <div>
+              <label className="text-xs text-amber-400 mb-1 block">💰 Valor total da estadia (EUR) 🔒</label>
+              <input type="number" min="0" value={h.price||""} onChange={e=>H("price",Number(e.target.value))}
+                placeholder="0" className="w-full px-2 py-1.5 bg-slate-700 border border-amber-700/40 rounded-xl text-sm text-amber-300 placeholder-slate-500 outline-none"/>
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-slate-400 mb-2 block">👥 Quem fica neste hotel</label>
+            <PersonPicker team={team} personIds={h.personIds||[]} onChange={ids=>H("personIds",ids)}/>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">📝 Notas</label>
+            <textarea value={h.notes} onChange={e=>H("notes",e.target.value)} rows={2}
+              placeholder="Nº quartos, pedidos especiais, referência da reserva…"
+              className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none resize-none"/>
+          </div>
+          <div className="flex gap-2 pt-1">
+            {h.id&&<button onClick={()=>{onDelete(h.id);onClose();}} className="px-3 py-2 text-red-400 hover:text-red-300 text-xs">🗑 Remover</button>}
+            <div className="flex-1"/>
+            <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm">Cancelar</button>
+            <button onClick={()=>{onSave({...h,id:h.id||null});onClose();}}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Logistics({ team, isAdmin, logistics, setLogistics }) {
+  const [subTab,     setSubTab]     = useState("flights");
+  const [editFlight, setEditFlight] = useState(null);
+  const [editHotel,  setEditHotel]  = useState(null);
+  const [selDate,    setSelDate]    = useState("2026-06-11");
+
+  const flights = logistics.flights || [];
+  const hotels  = logistics.hotels  || [];
+
+  function saveFlight(f) {
+    const list = f.id ? flights.map(x=>x.id===f.id?f:x) : [...flights, {...f,id:uid()}];
+    setLogistics(p=>({...p, flights:list}));
+  }
+  function deleteFlight(id) { setLogistics(p=>({...p, flights:flights.filter(f=>f.id!==id)})); }
+
+  function saveHotel(h) {
+    const list = h.id ? hotels.map(x=>x.id===h.id?h:x) : [...hotels, {...h,id:uid()}];
+    setLogistics(p=>({...p, hotels:list}));
+  }
+  function deleteHotel(id) { setLogistics(p=>({...p, hotels:hotels.filter(h=>h.id!==id)})); }
+
+  const totalFlights = flights.reduce((s,f)=>s+flightCost(f),0);
+  const totalHotels  = hotels.reduce((s,h)=>s+(h.price||0),0);
+  const grandTotal   = totalFlights + totalHotels;
+
+  // Por Dia: derived from catalog
+  const dateIdx      = WC_DATES.indexOf(selDate);
+  const dayFlights   = flights.filter(f=>f.date===selDate);
+  const dayHotels    = hotels.filter(h=>h.checkIn<=selDate&&h.checkOut>selDate);
+  const dayMatches   = FIFA_MATCHES.filter(m=>m.date===selDate);
+
+  return (
+    <div className="space-y-4">
+      {editFlight&&<FlightModal data={editFlight} team={team} isAdmin={isAdmin}
+        onSave={saveFlight} onDelete={deleteFlight} onClose={()=>setEditFlight(null)}/>}
+      {editHotel&&<HotelModal data={editHotel} team={team} isAdmin={isAdmin}
+        onSave={saveHotel} onDelete={deleteHotel} onClose={()=>setEditHotel(null)}/>}
+
+      {/* Financial stats — admin only */}
+      {isAdmin && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-slate-800/70 rounded-2xl border border-blue-700/30 p-3 text-center">
+            <div className="text-xl font-bold text-blue-400">€{totalFlights.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">✈️ Passagens 🔒</div>
+          </div>
+          <div className="bg-slate-800/70 rounded-2xl border border-teal-700/30 p-3 text-center">
+            <div className="text-xl font-bold text-teal-400">€{totalHotels.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">🏨 Hotéis 🔒</div>
+          </div>
+          <div className="bg-slate-800/70 rounded-2xl border border-amber-700/30 p-3 text-center">
+            <div className="text-xl font-bold text-amber-400">€{grandTotal.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Total 🔒</div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1.5">
+        {[{id:"flights",label:"✈️ Voos"},{id:"hotels",label:"🏨 Hotéis"},{id:"day",label:"📅 Por Dia"}].map(t=>(
+          <button key={t.id} onClick={()=>setSubTab(t.id)}
+            className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${subTab===t.id?"bg-emerald-600 border-emerald-500 text-white":"bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── VOOS ── */}
+      {subTab==="flights" && (
+        <div className="space-y-2">
+          {isAdmin&&(
+            <div className="flex justify-end">
+              <button onClick={()=>setEditFlight({...BLANK_FLIGHT_L})}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-colors">
+                + Adicionar voo
+              </button>
+            </div>
+          )}
+          {flights.length===0&&(
+            <div className="py-10 text-center text-slate-500 text-sm">Sem voos registados.</div>
+          )}
+          {[...flights].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(f=>{
+            const people=(f.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+            return (
+              <div key={f.id} className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+                <div className="flex items-start gap-3 p-3">
+                  <div className="text-2xl shrink-0 mt-0.5">✈️</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-slate-200">{f.from||"?"} → {f.to||"?"}</span>
+                      {f.flightNo&&<span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{f.flightNo}</span>}
+                      {isAdmin&&(f.pricePerPerson||f.price||0)>0&&(
+                        <span className="text-xs text-amber-400 ml-auto font-medium">
+                          💰 {f.pricePerPerson>0
+                            ? `€${f.pricePerPerson}/p · €${flightCost(f).toLocaleString("pt-PT")} total`
+                            : `€${(f.price||0).toLocaleString("pt-PT")}`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5 flex gap-3 flex-wrap">
+                      {f.date&&<span>📅 {fmtDate(f.date)}</span>}
+                      {f.depTime&&<span>🛫 {f.depTime}</span>}
+                      {f.arrTime&&<span>🛬 {f.arrTime}</span>}
+                    </div>
+                    {f.notes&&<div className="text-xs text-slate-500 mt-0.5">{f.notes}</div>}
+                    {people.length>0&&(
+                      <div className="flex gap-1 flex-wrap mt-1.5">
+                        {people.map(p=>(
+                          <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                            className="text-xs px-2 py-0.5 rounded-full border font-medium">
+                            {p.name.split(" ")[0]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {isAdmin&&(
+                    <button onClick={()=>setEditFlight({...f})}
+                      className="p-1.5 text-slate-600 hover:text-slate-300 transition-colors shrink-0">✏️</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── HOTÉIS ── */}
+      {subTab==="hotels" && (
+        <div className="space-y-2">
+          {isAdmin&&(
+            <div className="flex justify-end">
+              <button onClick={()=>setEditHotel({...BLANK_HOTEL_L})}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-medium transition-colors">
+                + Adicionar hotel
+              </button>
+            </div>
+          )}
+          {hotels.length===0&&(
+            <div className="py-10 text-center text-slate-500 text-sm">Sem hotéis registados.</div>
+          )}
+          {[...hotels].sort((a,b)=>(a.checkIn||"").localeCompare(b.checkIn||"")).map(h=>{
+            const people=(h.personIds||[]).map(pid=>team.find(p=>p.id===pid)).filter(Boolean);
+            const nights=logNights(h.checkIn,h.checkOut);
+            return (
+              <div key={h.id} className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+                <div className="flex items-start gap-3 p-3">
+                  <div className="text-2xl shrink-0 mt-0.5">🏨</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-slate-200">{h.name||"—"}</span>
+                      {h.city&&<span className="text-xs text-slate-400">📍 {h.city}</span>}
+                      {isAdmin&&(h.price||0)>0&&<span className="text-xs text-amber-400 ml-auto font-medium">💰 €{h.price.toLocaleString()}</span>}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5 flex gap-3 flex-wrap">
+                      {h.checkIn&&<span>📅 {fmtDate(h.checkIn)} → {h.checkOut?fmtDate(h.checkOut):"?"}</span>}
+                      {nights>0&&<span>🌙 {nights} noite{nights!==1?"s":""}</span>}
+                    </div>
+                    {h.notes&&<div className="text-xs text-slate-500 mt-0.5">{h.notes}</div>}
+                    {people.length>0&&(
+                      <div className="flex gap-1 flex-wrap mt-1.5">
+                        {people.map(p=>(
+                          <span key={p.id} style={{color:p.color,background:p.color+"22",borderColor:p.color+"44"}}
+                            className="text-xs px-2 py-0.5 rounded-full border font-medium">
+                            {p.name.split(" ")[0]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {isAdmin&&(
+                    <button onClick={()=>setEditHotel({...h})}
+                      className="p-1.5 text-slate-600 hover:text-slate-300 transition-colors shrink-0">✏️</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── POR DIA ── */}
+      {subTab==="day" && (
+        <div className="space-y-4">
+          {/* Day navigator */}
+          <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <button onClick={()=>dateIdx>0&&setSelDate(WC_DATES[dateIdx-1])} disabled={dateIdx<=0}
+                className="p-2 rounded-xl bg-slate-700/60 hover:bg-slate-600 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed text-sm">←</button>
+              <div className="flex-1 text-center">
+                <div className="text-base font-semibold text-slate-100">{dowPT(selDate)}, {fmtDate(selDate)}</div>
+                {dayMatches.length>0&&(
+                  <div className="text-xs text-amber-400 mt-0.5">
+                    ⚽ {dayMatches.map(m=>`${tTeam(m.home)} × ${tTeam(m.away)}`).join(" · ")}
+                  </div>
+                )}
+              </div>
+              <button onClick={()=>dateIdx<WC_DATES.length-1&&setSelDate(WC_DATES[dateIdx+1])} disabled={dateIdx>=WC_DATES.length-1}
+                className="p-2 rounded-xl bg-slate-700/60 hover:bg-slate-600 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed text-sm">→</button>
+            </div>
+            <div className="flex gap-1 overflow-x-auto no-scrollbar pb-0.5">
+              {WC_DATES.map(d=>{
+                const hasF=flights.some(f=>f.date===d);
+                const hasH=hotels.some(h=>h.checkIn<=d&&h.checkOut>d);
+                return (
+                  <button key={d} onClick={()=>setSelDate(d)}
+                    className={`shrink-0 text-xs px-2 py-1 rounded-lg transition-all ${d===selDate?"bg-emerald-600 text-white font-semibold":hasF||hasH?"bg-slate-600/80 text-slate-200":"bg-slate-700/40 text-slate-600"}`}>
+                    {d.slice(5).replace("-","/")}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Per-person cards */}
+          {team.length===0 ? (
+            <div className="py-8 text-center text-slate-500 text-sm">Adiciona membros na aba Equipa.</div>
+          ) : (
+            <div className="space-y-3">
+              {team.map(person=>{
+                const pFlights=dayFlights.filter(f=>(f.personIds||[]).includes(person.id));
+                const pHotels=dayHotels.filter(h=>(h.personIds||[]).includes(person.id));
+                const hasAny=pFlights.length>0||pHotels.length>0;
+                return (
+                  <div key={person.id}
+                    style={{borderLeftColor:person.color,borderLeftWidth:"3px"}}
+                    className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/40">
+                      <Avatar name={person.name} color={person.color} size="sm"/>
+                      <span className="font-semibold text-slate-200 text-sm">{person.name}</span>
+                      {!hasAny&&<span className="text-xs text-slate-600 italic ml-1">sem logística neste dia</span>}
+                    </div>
+                    {hasAny&&(
+                      <div className="p-3 space-y-2">
+                        {pFlights.map(f=>(
+                          <div key={f.id} className="flex items-center gap-2 bg-blue-950/30 border border-blue-800/30 rounded-xl px-3 py-2 text-xs flex-wrap">
+                            <span className="text-base">✈️</span>
+                            <span className="text-slate-200 font-medium">{f.from||"?"} → {f.to||"?"}</span>
+                            {f.flightNo&&<span className="bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">{f.flightNo}</span>}
+                            {f.depTime&&<span className="text-slate-400">🛫 {f.depTime}</span>}
+                            {f.arrTime&&<span className="text-slate-400">🛬 {f.arrTime}</span>}
+                          </div>
+                        ))}
+                        {pHotels.map(h=>{
+                          const nights=logNights(h.checkIn,h.checkOut);
+                          return (
+                            <div key={h.id} className="flex items-center gap-2 bg-teal-950/30 border border-teal-800/30 rounded-xl px-3 py-2 text-xs flex-wrap">
+                              <span className="text-base">🏨</span>
+                              <span className="text-slate-200 font-medium">{h.name||"—"}</span>
+                              {h.city&&<span className="text-slate-400">📍 {h.city}</span>}
+                              {nights>0&&<span className="text-slate-500">{nights} noite{nights!==1?"s":""}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── FINANCE DASHBOARD ────────────────────────────────────────────────────────
+const PER_DIEM_DAILY = 100;   // EUR por pessoa por dia (estimativa)
+const USD_EUR_RATE   = 0.92;  // Taxa de câmbio USD→EUR (ajustável)
+
+function FinanceDashboard({ team, agenda, pitchData, logistics }) {
+  const flights = logistics.flights || [];
+  const hotels  = logistics.hotels  || [];
+  const [showResumo, setShowResumo] = useState(true);
+  const [showPitch,  setShowPitch]  = useState(false);
+
+  // ── EDITORIAL ──
+  const realEntries = agenda.filter(e => e.personId !== "__team__");
+  const countType   = t => realEntries.filter(e => e.type === t).length;
+  const gamesInLoco = Object.values(pitchData).filter(v => v.inLoco).length;
+  const nDireto     = countType("direto");
+  const nGravacao   = countType("gravacao");
+  const nRedes      = countType("redes");
+  const nComercial  = countType("comercial");
+  const nJogo       = countType("jogo");
+  const nTreino     = countType("treino");
+  const totalContent= nDireto + nGravacao + nRedes + nComercial;
+
+  // ── PITCH POSITIONS (USD) ──
+  const inLocoEntries = Object.entries(pitchData).filter(([,v]) => v.inLoco);
+  let totalPitchUSD = 0;
+  inLocoEntries.forEach(([, matchData]) => {
+    Object.keys(matchData.positions || {}).forEach(posId => {
+      const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+      if (pos) totalPitchUSD += pos.price;
+    });
+  });
+
+  // ── LOGISTICS (EUR) ──
+  const totalHotelEUR   = hotels.reduce((s, h) => s + (h.price || 0), 0);
+  const totalFlightsEUR = flights.reduce((s, f) => s + flightCost(f), 0);
+  let totalPersonNights = 0;
+  hotels.forEach(h => {
+    const nights  = logNights(h.checkIn, h.checkOut);
+    const persons = (h.personIds || []).length || 1;
+    totalPersonNights += nights * persons;
+  });
+  const totalPerDiemEUR   = totalPersonNights * PER_DIEM_DAILY;
+  const totalLogisticsEUR = totalHotelEUR + totalFlightsEUR + totalPerDiemEUR;
+
+  // Per-person cost (proportional share of flights + hotels)
+  const personCosts = {};
+  team.forEach(p => { personCosts[p.id] = { hotel: 0, flight: 0 }; });
+  flights.forEach(f => {
+    const share = f.pricePerPerson > 0 ? (f.pricePerPerson||0) : (f.price||0) / Math.max(1,(f.personIds||[]).length);
+    (f.personIds || []).forEach(pid => { if (personCosts[pid]) personCosts[pid].flight += share; });
+  });
+  hotels.forEach(h => {
+    const share = (h.price || 0) / Math.max(1, (h.personIds || []).length);
+    (h.personIds || []).forEach(pid => { if (personCosts[pid]) personCosts[pid].hotel += share; });
+  });
+  const maxPersonCost = Math.max(1, ...team.map(p => {
+    const c = personCosts[p.id] || { hotel:0, flight:0 };
+    return c.hotel + c.flight;
+  }));
+
+  // ── PHASE RANGES (computed dynamically from FIFA_MATCHES) ──
+  const PHASE_DEFS = [
+    { id:"pre_group", label:"Pré-Copa + Fase de Grupos", stages:["Group Stage"],                       fixedStart:"2026-06-08" },
+    { id:"r16",       label:"16 Avos",                   stages:["16th Finals"] },
+    { id:"r8",        label:"Oitavas de Final",          stages:["8th Finals"] },
+    { id:"qf",        label:"Quartas de Final",          stages:["Quarter-finals"] },
+    { id:"sf",        label:"Semifinais",                stages:["Semi-finals","3rd Place Final"] },
+    { id:"final",     label:"Final",                     stages:["Final"] },
+  ];
+  const phaseRanges = {};
+  PHASE_DEFS.forEach((ph, i) => {
+    const dates = FIFA_MATCHES.filter(m => ph.stages.includes(m.stage)).map(m => m.date).sort();
+    if (!dates.length) return;
+    const endDate = dates[dates.length - 1];
+    let startDate = ph.fixedStart || null;
+    if (!startDate && i > 0) {
+      const prevEnd = phaseRanges[PHASE_DEFS[i-1].id]?.end;
+      if (prevEnd) {
+        const d = new Date(prevEnd + "T12:00:00Z");
+        d.setDate(d.getDate() + 1);
+        startDate = d.toISOString().slice(0, 10);
+      }
+    }
+    if (!startDate) startDate = dates[0];
+    phaseRanges[ph.id] = { start: startDate, end: endDate, label: ph.label };
+  });
+
+  function getPhaseForDate(date) {
+    if (!date) return null;
+    for (const ph of PHASE_DEFS) {
+      const r = phaseRanges[ph.id];
+      if (r && date >= r.start && date <= r.end) return ph.id;
+    }
+    return null;
+  }
+
+  function hotelNightsInPhase(hotel, phId) {
+    const r = phaseRanges[phId];
+    if (!r || !hotel.checkIn || !hotel.checkOut) return 0;
+    const s = hotel.checkIn  > r.start ? hotel.checkIn  : r.start;
+    const e = hotel.checkOut < r.end   ? hotel.checkOut : r.end;
+    if (s >= e) return 0;
+    const d1 = new Date(s + "T12:00:00Z"), d2 = new Date(e + "T12:00:00Z");
+    return Math.max(0, Math.round((d2 - d1) / 86400000));
+  }
+
+  const phaseCosts = {};
+  PHASE_DEFS.forEach(ph => { phaseCosts[ph.id] = { flight:0, hotel:0, perDiem:0, pitch:0 }; });
+
+  flights.forEach(f => {
+    const phId = getPhaseForDate(f.date);
+    if (phId) phaseCosts[phId].flight += flightCost(f);
+  });
+
+  hotels.forEach(h => {
+    const totalNights = logNights(h.checkIn, h.checkOut) || 1;
+    PHASE_DEFS.forEach(ph => {
+      const nights  = hotelNightsInPhase(h, ph.id);
+      if (!nights) return;
+      const persons = (h.personIds || []).length || 1;
+      phaseCosts[ph.id].hotel   += (h.price || 0) * (nights / totalNights);
+      phaseCosts[ph.id].perDiem += nights * persons * PER_DIEM_DAILY;
+    });
+  });
+
+  inLocoEntries.forEach(([matchId, matchData]) => {
+    const match = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
+    if (!match) return;
+    const phId = getPhaseForDate(match.date);
+    if (!phId) return;
+    Object.keys(matchData.positions || {}).forEach(posId => {
+      const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+      if (pos) phaseCosts[phId].pitch += pos.price;
+    });
+  });
+
+  // ── CITY COSTS (excl. pitch positions) ──
+  const cityCosts = {};
+  hotels.forEach(h => {
+    const c = h.city || "Desconhecida";
+    if (!cityCosts[c]) cityCosts[c] = { hotel:0, perDiem:0 };
+    const nights  = logNights(h.checkIn, h.checkOut);
+    const persons = (h.personIds || []).length || 1;
+    cityCosts[c].hotel   += (h.price || 0);
+    cityCosts[c].perDiem += nights * persons * PER_DIEM_DAILY;
+  });
+  const maxCityTotal  = Math.max(1, ...Object.values(cityCosts).map(c => c.hotel + c.perDiem));
+  const totalPitchEUR = totalPitchUSD * USD_EUR_RATE;
+  const grandTotalEUR = totalLogisticsEUR + totalPitchEUR;
+
+  // ── CUSTOS COMPARTILHADOS ──
+  // Pessoas cujos custos são partilhados (÷2) com entidade externa
+  const SHARED_NAMES = ["quaresma","rui pedro","rodrigo"];
+  const sharedTeam   = team.filter(p => SHARED_NAMES.some(n => p.name.toLowerCase().includes(n)));
+
+  // Custos de logística das pessoas partilhadas (÷2)
+  let sharedFlightEUR = 0, sharedHotelEUR = 0, sharedPerDiemEUR = 0;
+  sharedTeam.forEach(p => {
+    flights.forEach(f => {
+      if ((f.personIds||[]).includes(p.id)) {
+        const ppp = f.pricePerPerson > 0 ? (f.pricePerPerson||0) : (f.price||0)/Math.max(1,(f.personIds||[]).length);
+        sharedFlightEUR += ppp;
+      }
+    });
+    hotels.forEach(h => {
+      if ((h.personIds||[]).includes(p.id)) {
+        const share  = (h.price||0) / Math.max(1,(h.personIds||[]).length);
+        const nights = logNights(h.checkIn, h.checkOut);
+        sharedHotelEUR   += share;
+        sharedPerDiemEUR += nights * PER_DIEM_DAILY;
+      }
+    });
+  });
+  sharedFlightEUR  /= 2;
+  sharedHotelEUR   /= 2;
+  sharedPerDiemEUR /= 2;
+
+  // Custos de Pitch dos jogos de Portugal (Presentation Position + Centre Circle) ÷2
+  const SHARED_PITCH_IDS  = ["touchline_partial","touchline_knockout","centre_circle"];
+  let sharedPitchUSD = 0;
+  inLocoEntries.forEach(([matchId, matchData]) => {
+    const match = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
+    if (!match) return;
+    if (match.home !== "Portugal" && match.away !== "Portugal") return;
+    SHARED_PITCH_IDS.forEach(posId => {
+      if (matchData.positions?.[posId]) {
+        const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+        if (pos) sharedPitchUSD += pos.price;
+      }
+    });
+  });
+  sharedPitchUSD /= 2;
+  const sharedPitchEUR  = sharedPitchUSD * USD_EUR_RATE;
+  const sharedTotalEUR  = sharedFlightEUR + sharedHotelEUR + sharedPerDiemEUR + sharedPitchEUR;
+
+  // ── HELPERS ──
+  const fmtUSD = n => "$" + Math.round(n).toLocaleString("pt-PT");
+  const fmtEUR = n => "€" + Math.round(n).toLocaleString("pt-PT");
+
+  function Bar({ value, max, color, color2, value2 }) {
+    const pct  = max > 0 ? Math.min(100, (value  / max) * 100) : 0;
+    const pct2 = max > 0 ? Math.min(100, (value2 / max) * 100) : 0;
+    if (color2 !== undefined) {
+      return (
+        <div className="h-2 bg-slate-700 rounded-full overflow-hidden flex">
+          <div style={{ width: `${pct}%`,  background: color  }} className="h-full"/>
+          <div style={{ width: `${pct2}%`, background: color2 }} className="h-full"/>
+        </div>
+      );
+    }
+    return (
+      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div style={{ width: `${pct}%`, background: color }} className="h-full rounded-full"/>
+      </div>
+    );
+  }
+
+  function KpiCard({ emoji, label, value, sub, color }) {
+    return (
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-1">
+        <div className="text-xl">{emoji}</div>
+        <div className="text-xl font-bold leading-tight" style={{ color }}>{value}</div>
+        <div className="text-xs text-slate-300 leading-snug">{label}</div>
+        {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+      </div>
+    );
+  }
+
+  function SectionTitle({ children, total }) {
+    return (
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{children}</h2>
+        {total !== undefined && <span className="text-base font-bold text-white">{total}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-7 pb-10">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl px-4 py-3">
+        <span className="text-2xl">📊</span>
+        <div>
+          <div className="font-bold text-amber-300 text-base leading-tight">Dashboard Financeiro &amp; Editorial</div>
+          <div className="text-xs text-amber-400/70">Acesso exclusivo admin · Calculado em tempo real</div>
+        </div>
+      </div>
+
+      {/* ── 1. RESUMO FINANCEIRO GLOBAL (topo, collapsible) ── */}
+      <section>
+        <button onClick={() => setShowResumo(v => !v)}
+          className="w-full flex items-center justify-between bg-gradient-to-br from-slate-800 to-slate-900 border border-amber-700/40 rounded-2xl px-5 py-4 text-left transition-all hover:border-amber-500/60">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💰</span>
+            <span className="text-sm font-semibold text-slate-200">Resumo Financeiro Global</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-amber-400 font-bold text-sm">{fmtEUR(grandTotalEUR)}</span>
+            <span className="text-slate-400 text-sm">{showResumo ? "▲" : "▼"}</span>
+          </div>
+        </button>
+        {showResumo && (
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-amber-700/40 border-t-0 rounded-b-2xl px-5 pb-5 pt-4 space-y-2.5 -mt-1">
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">✈️ Viagens</span>
+              <span className="text-blue-400 font-bold">{fmtEUR(totalFlightsEUR)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">🏨 Hotéis</span>
+              <span className="text-amber-400 font-bold">{fmtEUR(totalHotelEUR)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-300 text-sm">🍽️ Per Diem estimado</span>
+              <span className="text-green-400 font-bold">{fmtEUR(totalPerDiemEUR)}</span>
+            </div>
+            {totalPitchUSD > 0 && (
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-300 text-sm">🎙️ Pitch Positions <span className="text-slate-500 text-xs">({fmtUSD(totalPitchUSD)} × {USD_EUR_RATE})</span></span>
+                <span className="text-violet-400 font-bold">{fmtEUR(totalPitchEUR)}</span>
+              </div>
+            )}
+            <div className="border-t border-slate-600 pt-3 flex justify-between items-center">
+              <div>
+                <div className="text-slate-200 font-semibold">🧮 Total Geral (EUR)</div>
+                <div className="text-xs text-slate-500">logística + pitch (câmbio {USD_EUR_RATE})</div>
+              </div>
+              <span className="text-white font-bold text-xl">{fmtEUR(grandTotalEUR)}</span>
+            </div>
+            <div className="text-xs text-slate-600 pt-1">
+              * Per diem €{PER_DIEM_DAILY}/pessoa/dia. Câmbio USD→EUR: {USD_EUR_RATE} (fixo, ajustar se necessário).
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── 2. CUSTO POR FASE ── */}
+      <section>
+        <SectionTitle>📅 Custo por Fase</SectionTitle>
+        <div className="space-y-2">
+          {PHASE_DEFS.filter(ph => {
+            const c = phaseCosts[ph.id];
+            return c && (c.flight + c.hotel + c.perDiem + c.pitch) > 0;
+          }).map(ph => {
+            const c = phaseCosts[ph.id];
+            const eurTotal = c.flight + c.hotel + c.perDiem + c.pitch * USD_EUR_RATE;
+            const r = phaseRanges[ph.id];
+            return (
+              <div key={ph.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-200">{ph.label}</div>
+                    {r && <div className="text-xs text-slate-500 mt-0.5">{r.start} → {r.end}</div>}
+                  </div>
+                  <span className="text-white font-bold text-sm shrink-0 ml-3">{fmtEUR(eurTotal)}</span>
+                </div>
+                <div className="space-y-1 border-t border-slate-700/50 pt-2">
+                  {[
+                    {label:"✈️ Aéreo",      value:c.flight,              fmt:fmtEUR, color:"#3b82f6"},
+                    {label:"🏨 Hospedagem", value:c.hotel,               fmt:fmtEUR, color:"#f59e0b"},
+                    {label:"🍽️ Per Diem",   value:c.perDiem,             fmt:fmtEUR, color:"#10b981"},
+                    {label:"🎙️ Pitch Pos.", value:c.pitch*USD_EUR_RATE,  fmt:fmtEUR, color:"#a78bfa", sub: c.pitch>0?fmtUSD(c.pitch):""},
+                  ].filter(x => x.value > 0).map(x => (
+                    <div key={x.label} className="flex justify-between text-xs">
+                      <span className="text-slate-400">{x.label}{x.sub?<span className="text-slate-600 ml-1">({x.sub})</span>:null}</span>
+                      <span style={{color:x.color}} className="font-medium">{x.fmt(x.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {PHASE_DEFS.every(ph => { const c = phaseCosts[ph.id]; return !c || (c.flight+c.hotel+c.perDiem+c.pitch)===0; }) && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
+              Sem dados financeiros ainda. Adicione voos, hotéis ou selecione jogos in loco.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── 3. LOGÍSTICA (EUR) ── */}
+      <section>
+        <SectionTitle total={fmtEUR(totalLogisticsEUR)}>🗺️ Logística (EUR)</SectionTitle>
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <KpiCard emoji="✈️" label="Viagens"  value={fmtEUR(totalFlightsEUR)} color="#3b82f6"
+            sub={`${flights.length} voo${flights.length!==1?"s":""}`}/>
+          <KpiCard emoji="🏨" label="Hotéis"   value={fmtEUR(totalHotelEUR)}   color="#f59e0b"
+            sub={`${hotels.length} reserva${hotels.length!==1?"s":""}`}/>
+          <KpiCard emoji="🍽️" label="Per Diem" value={fmtEUR(totalPerDiemEUR)} color="#10b981"
+            sub={`${totalPersonNights} p·noite · €${PER_DIEM_DAILY}/dia`}/>
+        </div>
+        {totalLogisticsEUR > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
+            <div className="text-xs text-slate-400 mb-3 font-medium">Composição do orçamento logístico</div>
+            <div className="space-y-2.5">
+              {[
+                {label:"✈️ Viagens",  cost:totalFlightsEUR, color:"#3b82f6"},
+                {label:"🏨 Hotéis",   cost:totalHotelEUR,   color:"#f59e0b"},
+                {label:"🍽️ Per Diem", cost:totalPerDiemEUR, color:"#10b981"},
+              ].filter(x => x.cost > 0).map(x => (
+                <div key={x.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-300">{x.label}</span>
+                    <span className="font-medium" style={{color:x.color}}>
+                      {fmtEUR(x.cost)}
+                      <span className="text-slate-500 ml-1.5">({totalLogisticsEUR>0?Math.round((x.cost/totalLogisticsEUR)*100):0}%)</span>
+                    </span>
+                  </div>
+                  <Bar value={x.cost} max={totalLogisticsEUR} color={x.color}/>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {team.length > 0 && (totalFlightsEUR + totalHotelEUR) > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
+            <div className="text-xs text-slate-400 mb-3 font-medium">Custo por Pessoa (viagens + hotel, proporcional)</div>
+            <div className="space-y-3">
+              {team.map(p => {
+                const pc    = personCosts[p.id] || { hotel:0, flight:0 };
+                const total = pc.hotel + pc.flight;
+                return (
+                  <div key={p.id}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="flex items-center gap-1.5 text-slate-300">
+                        <span className="text-base" style={{color:p.color}}>●</span>
+                        {p.name}
+                      </span>
+                      <span className="text-slate-200 font-medium">{fmtEUR(total)}</span>
+                    </div>
+                    <Bar value={pc.flight} max={maxPersonCost} color="#3b82f6" color2="#f59e0b" value2={pc.hotel}/>
+                  </div>
+                );
+              })}
+              <div className="flex gap-4 text-xs text-slate-500 pt-1">
+                <span><span className="text-blue-400 mr-1">■</span>Viagens</span>
+                <span><span className="text-amber-400 mr-1">■</span>Hotel</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {Object.keys(cityCosts).length > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+            <div className="text-xs text-slate-400 mb-3 font-medium">Custo por Cidade (hotel + per diem)</div>
+            <div className="space-y-3">
+              {Object.entries(cityCosts).sort((a,b)=>(b[1].hotel+b[1].perDiem)-(a[1].hotel+a[1].perDiem)).map(([city,c])=>{
+                const total=c.hotel+c.perDiem;
+                const maxH=maxCityTotal>0?Math.min(100,(c.hotel/maxCityTotal)*100):0;
+                const maxP=maxCityTotal>0?Math.min(100,(c.perDiem/maxCityTotal)*100):0;
+                return (
+                  <div key={city}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-300">📍 {city}</span>
+                      <span className="text-white font-medium">{fmtEUR(total)}</span>
+                    </div>
+                    <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden flex">
+                      <div style={{width:`${maxH}%`,background:"#f59e0b"}} className="h-full"/>
+                      <div style={{width:`${maxP}%`,background:"#10b981"}} className="h-full"/>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500 mt-0.5">
+                      <span>🏨 {fmtEUR(c.hotel)}</span><span>🍽️ {fmtEUR(c.perDiem)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-4 text-xs text-slate-600 mt-3 pt-2 border-t border-slate-700/50">
+              <span><span className="text-amber-400 mr-1">■</span>Hotel</span>
+              <span><span className="text-emerald-400 mr-1">■</span>Per Diem</span>
+              <span>· Voos não atribuídos por cidade</span>
+            </div>
+          </div>
+        )}
+        {flights.length===0&&hotels.length===0&&(
+          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
+            Nenhuma viagem ou hotel registado ainda na aba Logística.
+          </div>
+        )}
+      </section>
+
+      {/* ── 4. PITCH POSITIONS (collapsible, jogo a jogo) ── */}
+      <section>
+        <button onClick={()=>setShowPitch(v=>!v)}
+          className="w-full flex items-center justify-between bg-slate-800/70 border border-slate-700 rounded-2xl px-4 py-3 text-left transition-all hover:border-violet-600/40">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🎙️</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Pitch Positions (USD)</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-violet-400 font-bold text-sm">{fmtUSD(totalPitchUSD)}</span>
+            <span className="text-slate-400 text-sm">{showPitch?"▲":"▼"}</span>
+          </div>
+        </button>
+        {showPitch && (
+          <div className="mt-2">
+            {inLocoEntries.length === 0 ? (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
+                Nenhum jogo in loco selecionado ainda na aba Pitch Positions.
+              </div>
+            ) : (
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-2">
+                {inLocoEntries.map(([matchId, matchData]) => {
+                  const match    = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
+                  let matchCost  = 0;
+                  const posNames = [];
+                  Object.keys(matchData.positions || {}).forEach(posId => {
+                    const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
+                    if (pos) { matchCost += pos.price; posNames.push(pos.label+(pos.note?" · "+pos.note:"")); }
+                  });
+                  return (
+                    <div key={matchId} className="py-2 border-b border-slate-700/50 last:border-0">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="text-xs font-medium text-slate-200">{match?`${tTeam(match.home)} × ${tTeam(match.away)}`:`Jogo #${matchId}`}</div>
+                          <div className="text-xs text-slate-500">{match?.date} · {match?.city} · {tStage(match?.stage)}</div>
+                          {posNames.map((n,i)=><div key={i} className="text-xs text-slate-600 mt-0.5">· {n}</div>)}
+                        </div>
+                        <span className="text-emerald-400 font-bold text-xs ml-3 shrink-0">{fmtUSD(matchCost)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── 5. CUSTOS COMPARTILHADOS ── */}
+      <section>
+        <SectionTitle total={fmtEUR(sharedTotalEUR)}>🤝 Custos Compartilhados (÷2)</SectionTitle>
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-4">
+          <div className="text-xs text-slate-500 -mt-1">
+            Metade dos custos abaixo pode ser recuperada junto ao parceiro.
+          </div>
+
+          {/* Pessoas partilhadas */}
+          {sharedTeam.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">👥 Equipa (÷2)</div>
+              <div className="space-y-1.5">
+                {sharedTeam.map(p => {
+                  let pFlight=0, pHotel=0, pPerDiem=0;
+                  flights.forEach(f=>{
+                    if((f.personIds||[]).includes(p.id)){
+                      const ppp=f.pricePerPerson>0?(f.pricePerPerson||0):(f.price||0)/Math.max(1,(f.personIds||[]).length);
+                      pFlight+=ppp;
+                    }
+                  });
+                  hotels.forEach(h=>{
+                    if((h.personIds||[]).includes(p.id)){
+                      pHotel   +=(h.price||0)/Math.max(1,(h.personIds||[]).length);
+                      pPerDiem +=logNights(h.checkIn,h.checkOut)*PER_DIEM_DAILY;
+                    }
+                  });
+                  const personTotal=(pFlight+pHotel+pPerDiem)/2;
+                  return (
+                    <div key={p.id} className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs text-slate-300">
+                        <span style={{color:p.color}}>●</span>{p.name}
+                        <span className="text-slate-600">· ✈️{fmtEUR(pFlight/2)} 🏨{fmtEUR(pHotel/2)} 🍽️{fmtEUR(pPerDiem/2)}</span>
+                      </span>
+                      <span className="text-xs font-semibold text-slate-200 shrink-0 ml-2">{fmtEUR(personTotal)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Pitch Portugal */}
+          {sharedPitchUSD > 0 && (
+            <div className="border-t border-slate-700/50 pt-3">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">🇵🇹 Pitch Positions (Portugal) ÷2</div>
+              <div className="space-y-1">
+                {inLocoEntries.filter(([matchId])=>{
+                  const m=FIFA_MATCHES.find(x=>String(x.id)===String(matchId));
+                  return m&&(m.home==="Portugal"||m.away==="Portugal");
+                }).map(([matchId, matchData])=>{
+                  const match=FIFA_MATCHES.find(m=>String(m.id)===String(matchId));
+                  let mCost=0;
+                  SHARED_PITCH_IDS.forEach(posId=>{
+                    if(matchData.positions?.[posId]){
+                      const pos=PITCH_POSITIONS_CATALOG.find(p=>p.id===posId);
+                      if(pos) mCost+=pos.price;
+                    }
+                  });
+                  if(!mCost) return null;
+                  return (
+                    <div key={matchId} className="flex justify-between text-xs">
+                      <span className="text-slate-400">{match?`${tTeam(match.home)} × ${tTeam(match.away)}`:`#${matchId}`} <span className="text-slate-600">· Pres.Pos + Centre Circle</span></span>
+                      <span className="text-violet-400 font-medium">{fmtEUR(mCost/2*USD_EUR_RATE)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Total recuperável */}
+          <div className="border-t border-slate-600 pt-3 flex justify-between items-center">
+            <div>
+              <div className="text-slate-200 font-semibold text-sm">💸 Total a recuperar</div>
+              <div className="text-xs text-slate-500">metade dos custos acima</div>
+            </div>
+            <span className="text-emerald-400 font-bold text-lg">{fmtEUR(sharedTotalEUR)}</span>
+          </div>
+
+          {sharedTeam.length===0 && sharedPitchUSD===0 && (
+            <div className="text-slate-500 text-sm text-center py-2">
+              Nenhum membro da equipa partilhada encontrado ou sem jogos de Portugal in loco.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── 6. EDITORIAL ── */}
+      <section>
+        <SectionTitle>📋 Editorial</SectionTitle>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <KpiCard emoji="⚽" label="Jogos cobertos in loco"     value={gamesInLoco}  color="#10b981"/>
+          <KpiCard emoji="📡" label="Entradas em Direto"         value={nDireto}      color="#ec4899"/>
+          <KpiCard emoji="🎬" label="Gravações de Conteúdo"      value={nGravacao}    color="#f97316"/>
+          <KpiCard emoji="📲" label="Redes Sociais"              value={nRedes}       color="#a855f7"/>
+          <KpiCard emoji="🤝" label="Ações Comerciais"           value={nComercial}   color="#06b6d4"/>
+          <KpiCard emoji="📦" label="Total conteúdos produzidos" value={totalContent} color="#f59e0b"
+            sub="direto + gravação + redes + comercial"/>
+        </div>
+        {(nJogo > 0 || nTreino > 0) && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {nJogo   > 0 && <KpiCard emoji="⚽" label="Coberturas de Jogo"   value={nJogo}   color="#ef4444"/>}
+            {nTreino > 0 && <KpiCard emoji="🏋️" label="Coberturas de Treino" value={nTreino} color="#22c55e"/>}
+          </div>
+        )}
+      </section>
+
+    </div>
+  );
+}
+
+// ── APP ──────────────────────────────────────────────────────────────────────
+const TABS = [
+  {id:"home",       label:"🏠 Início",           },
+  {id:"agenda",     label:"📋 Pauta",            },
+  {id:"logistics",  label:"🧳 Logística",        },
+  {id:"pitch",      label:"🎙️ Pitch Positions",},
+  {id:"financeiro", label:"💰 Financeiro",       adminOnly:true},
+  {id:"schedule",   label:"📅 Calendário",       },
+  {id:"team",       label:"👥 Equipas",          },
+];
+
+function App() {
+  const [team,          setTeam]          = useState([]);
+  const [agenda,        setAgenda]        = useState([]);
+  const [pitchData,     setPitchData]     = useState({});
+  const [logistics,     setLogistics]     = useState({flights:[], hotels:[]});
+  const [broadcastData, setBroadcastData] = useState({});
+  const [tab,           setTab]           = useState("home");
+  const [userRole,      setUserRole]      = useState(null); // null | "admin" | "comercial" | "redes" | "transmite" | "financeiro"
+  const [isAdmin,       setIsAdmin]       = useState(false);
+  const [showChangePw,  setShowChangePw]  = useState(false);
+  const [dbLoading,     setDbLoading]     = useState(true);
+  const [dbError,       setDbError]       = useState(null);
+
+  // Derived values
+  const isLoggedIn   = userRole !== null;
+  const isFinanceiro = userRole === "financeiro";
+  const isTransmite  = userRole === "transmite";
+  const isComercial  = userRole === "comercial";
+  const isRedes      = userRole === "redes";
+
+  // Track last data synced from Firestore to avoid echo-writes
+  const lastSynced  = useRef({ team:null, agenda:null, pitch:null, logistics:null, broadcast:null });
+  const writeTimers = useRef({});
+
+  // ── Firestore real-time listeners ──────────────────────────────────────────
+  useEffect(() => {
+    let loaded = 0;
+    const markLoaded = () => { if (++loaded >= 5) setDbLoading(false); };
+    const col = db.collection("mundial2026");
+    const onErr = e => { console.error(e); setDbError(e.message); };
+
+    const unsubs = [
+      col.doc("team").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || []) : [];
+        lastSynced.current.team = JSON.stringify(val);
+        setTeam(val); markLoaded();
+      }, onErr),
+      col.doc("agenda").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || []) : [];
+        lastSynced.current.agenda = JSON.stringify(val);
+        setAgenda(val); markLoaded();
+      }, onErr),
+      col.doc("pitch").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || {}) : {};
+        lastSynced.current.pitch = JSON.stringify(val);
+        setPitchData(val); markLoaded();
+      }, onErr),
+      col.doc("logistics").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || {flights:[],hotels:[]}) : {flights:[],hotels:[]};
+        lastSynced.current.logistics = JSON.stringify(val);
+        setLogistics(val); markLoaded();
+      }, onErr),
+      col.doc("broadcast").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || {}) : {};
+        lastSynced.current.broadcast = JSON.stringify(val);
+        setBroadcastData(val); markLoaded();
+      }, onErr),
+    ];
+    return () => unsubs.forEach(u => u());
+  }, []);
+
+  // ── Debounced Firestore writes (skip echo, 700ms delay) ───────────────────
+  function fsWrite(docId, syncKey, data) {
+    const str = JSON.stringify(data);
+    if (str === lastSynced.current[syncKey]) return;
+    if (writeTimers.current[docId]) clearTimeout(writeTimers.current[docId]);
+    writeTimers.current[docId] = setTimeout(() => {
+      lastSynced.current[syncKey] = str;
+      db.collection("mundial2026").doc(docId).set({ value: data }).catch(console.error);
+    }, 700);
+  }
+
+  useEffect(() => { if (!dbLoading) fsWrite("team",      "team",      team);          }, [team,          dbLoading]);
+  useEffect(() => { if (!dbLoading) fsWrite("agenda",    "agenda",    agenda);        }, [agenda,        dbLoading]);
+  useEffect(() => { if (!dbLoading) fsWrite("pitch",     "pitch",     pitchData);     }, [pitchData,     dbLoading]);
+  useEffect(() => { if (!dbLoading) fsWrite("logistics", "logistics", logistics);     }, [logistics,     dbLoading]);
+  useEffect(() => { if (!dbLoading) fsWrite("broadcast", "broadcast", broadcastData); }, [broadcastData, dbLoading]);
+
+  function handleLockClick() {
+    setUserRole(null); setIsAdmin(false); // returns to login screen
+  }
+
+  // ── Loading / error screens ────────────────────────────────────────────────
+  if (dbError) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-6">
+      <div className="text-center max-w-sm">
+        <div className="text-4xl mb-4">⚠️</div>
+        <div className="text-red-400 font-semibold mb-2">Erro ao conectar à base de dados</div>
+        <div className="text-slate-500 text-sm mb-4">{dbError}</div>
+        <button onClick={()=>window.location.reload()}
+          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-sm">
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  );
+
+  if (dbLoading) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-5xl mb-5">🏆</div>
+        <div className="text-slate-200 font-semibold text-lg mb-1">Mundial 2026</div>
+        <div className="text-slate-400 text-sm mb-6">LiveMode · A carregar dados...</div>
+        <div className="flex justify-center gap-1.5">
+          {[0,1,2].map(i=>(
+            <div key={i} className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"
+              style={{animationDelay:`${i*150}ms`}}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!userRole) return (
+    <LoginScreen onSuccess={(role)=>{ setUserRole(role); setIsAdmin(role==="admin"); }}/>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100">
+      {/* Modals */}
+      {showChangePw && <ChangePwModal onClose={()=>setShowChangePw(false)} userRole={userRole}/>}
+
+      {/* Header */}
+      <div className="bg-slate-900/95 border-b border-slate-700/50 sticky top-0 z-20 backdrop-blur-sm no-print">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="py-3 flex items-center gap-3">
+            <span className="text-3xl">🏆</span>
+            <div>
+              <div className="font-bold text-slate-100 leading-tight text-base">Mundial 2026</div>
+              <div className="text-xs text-slate-400">Plano de Pauta & Logística · LiveMode</div>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              {/* Mode badge */}
+              {userRole === "admin"
+                ? <span className="text-xs text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20 font-medium">
+                    ✏️ Admin
+                  </span>
+                : userRole === "financeiro"
+                ? <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-full border border-yellow-400/20 font-medium">
+                    💰 Financeiro
+                  </span>
+                : userRole === "transmite"
+                ? <span className="text-xs text-purple-400 bg-purple-400/10 px-2.5 py-1 rounded-full border border-purple-400/20 font-medium">
+                    📡 Transmissão
+                  </span>
+                : userRole === "comercial"
+                ? <span className="text-xs text-green-400 bg-green-400/10 px-2.5 py-1 rounded-full border border-green-400/20 font-medium">
+                    🤝 Comercial
+                  </span>
+                : userRole === "redes"
+                ? <span className="text-xs text-pink-400 bg-pink-400/10 px-2.5 py-1 rounded-full border border-pink-400/20 font-medium">
+                    📲 Redes
+                  </span>
+                : null
+              }
+              {/* Lock / unlock button */}
+              <button
+                onClick={handleLockClick}
+                title="Sair / Trocar conta"
+                className={`p-2 rounded-xl border transition-colors text-sm ${isAdmin?"bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30 text-amber-300":"bg-slate-700/50 border-slate-600 hover:bg-slate-700 text-slate-400"}`}>
+                🔓
+              </button>
+              {/* Change password (admin only) */}
+              {isAdmin&&(
+                <button onClick={()=>setShowChangePw(true)}
+                  title="Alterar senha"
+                  className="p-2 rounded-xl border border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-sm transition-colors">
+                  🔑
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-0 overflow-x-auto no-scrollbar -mb-px">
+            {TABS.filter(t=>!t.adminOnly||isAdmin||isFinanceiro).map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)}
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${tab===t.id?"border-emerald-500 text-emerald-400":"border-transparent text-slate-400 hover:text-slate-200"}`}>
+                {t.emoji} {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-3xl mx-auto px-4 py-5">
+        {tab==="home"  && <Home  team={team} agenda={agenda} broadcastData={broadcastData}/>}
+        {tab==="agenda"     && <Agenda     team={team} isAdmin={isAdmin} userRole={userRole} agenda={agenda} setAgenda={setAgenda} pitchData={pitchData} logistics={logistics} broadcastData={broadcastData}/>}
+        {tab==="logistics"  && <Logistics  team={team} isAdmin={isAdmin} logistics={logistics} setLogistics={setLogistics}/>}
+        {tab==="pitch"      && <PitchTab   team={team} isAdmin={isAdmin} userRole={userRole} pitchData={pitchData} setPitchData={setPitchData}/>}
+        {tab==="financeiro" && (isAdmin||isFinanceiro) && <FinanceDashboard team={team} agenda={agenda} pitchData={pitchData} logistics={logistics}/>}
+        {tab==="schedule"   && <Schedule   team={team} broadcastData={broadcastData} setBroadcastData={setBroadcastData} isAdmin={isAdmin}/>}
+        {tab==="team"       && <TeamTab    team={team} setTeam={setTeam} isAdmin={isAdmin}/>}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
+
     apiKey:            "AIzaSyDVPbz2kK8NT1GR4X0TcpCaLjKwfdyJCAA",
     authDomain:        "livemode-mundial.firebaseapp.com",
     projectId:         "livemode-mundial",
