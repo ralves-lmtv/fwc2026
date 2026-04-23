@@ -4483,12 +4483,16 @@ function Simulador({ team, logistics, pitchData, usdEurRate, simulador, setSimul
 
               {/* Header */}
               <div className="flex items-center gap-3 px-4 py-3" style={{background:cfg.active?st.color+"11":"transparent"}}>
-                <button onClick={()=>updateStage(st.id,{active:!cfg.active})}
-                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors`}
+                {/* Toggle switch */}
+                <button
+                  onClick={e=>{e.stopPropagation();updateStage(st.id,{active:!cfg.active});}}
+                  className="relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors"
                   style={{background:cfg.active?st.color:"#334155"}}>
                   <span className={`inline-block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform ${cfg.active?"translate-x-4":"translate-x-0.5"}`}/>
                 </button>
-                <div className="flex-1 min-w-0">
+
+                {/* Label — clicking expands if active */}
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={()=>cfg.active&&setExpandedStage(isExp?null:st.id)}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-slate-200">{st.label}</span>
                     <span className="text-xs text-slate-500">{st.dates.from} → {st.dates.to}</span>
@@ -4497,16 +4501,21 @@ function Simulador({ team, logistics, pitchData, usdEurRate, simulador, setSimul
                     </span>
                   </div>
                 </div>
+
+                {/* Cost summary */}
                 {cfg.active && calc.total>0 && (
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 cursor-pointer" onClick={()=>setExpandedStage(isExp?null:st.id)}>
                     <div className="text-sm font-bold text-white">{fmtEUR(calc.total)}</div>
                     {calc.sin>0 && <div className="text-xs text-emerald-400">-{fmtEUR(calc.sin)} sin.</div>}
                     {calc.sin>0 && <div className="text-xs text-emerald-300 font-semibold">{fmtEUR(calc.net)}</div>}
                   </div>
                 )}
+
+                {/* Expand button — always visible when active */}
                 {cfg.active && (
-                  <button onClick={()=>setExpandedStage(isExp?null:st.id)}
-                    className="text-slate-400 hover:text-slate-200 text-sm transition-colors shrink-0 w-5 text-center">
+                  <button
+                    onClick={e=>{e.stopPropagation();setExpandedStage(isExp?null:st.id);}}
+                    className="text-slate-400 hover:text-slate-200 text-sm transition-colors shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700/50">
                     {isExp?"▲":"▼"}
                   </button>
                 )}
