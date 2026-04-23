@@ -412,71 +412,215 @@ function ChangePwModal({ onClose, userRole }) {
   );
 }
 
-// ── HOME TAB (NEW) ──────────────────────────────────────────────────────────────
-function Home({ team, agenda, broadcastData }) {
-  // Find today's date
+// ── HOME TAB ──────────────────────────────────────────────────────────────────
+function Home({ team, agenda, broadcastData, logistics }) {
   const today = new Date().toISOString().split('T')[0];
-  
-  // Check if today has matches or agenda items
+
+  // Find display date: today if it has content, otherwise next active day
   const todayMatches = FIFA_MATCHES.filter(m => m.date === today);
-  const todayAgenda = agenda.filter(e => e.date === today && e.personId !== "__team__");
+  const todayAgenda  = agenda.filter(e => e.date === today && e.personId !== "__team__");
   const todayHasContent = todayMatches.length > 0 || todayAgenda.length > 0;
-  
-  // If no content today, find next date with activity
+
   let displayDate = today;
   if (!todayHasContent) {
-    const allDates = [
-      ...new Set([
-        ...FIFA_MATCHES.map(m => m.date),
-        ...agenda.filter(e => e.personId !== "__team__").map(e => e.date)
-      ])
-    ].sort();
-    displayDate = allDates.find(d => d > today) || allDates[allDates.length - 1] || today;
+    const allDates = [...new Set([
+      ...FIFA_MATCHES.map(m => m.date),
+      ...agenda.filter(e => e.personId !== "__team__").map(e => e.date)
+    ])].sort();
+    displayDate = allDates.find(d => d >= today) || allDates[allDates.length - 1] || today;
   }
-  
-  const dayMatches = FIFA_MATCHES.filter(m => m.date === displayDate);
-  const dayAgenda = agenda.filter(e => e.date === displayDate && e.personId !== "__team__");
-  
-  const dateObj = new Date(displayDate + "T12:00:00");
-  const dateStr = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const headerLabel = displayDate === today ? "📅 Hoje" : "📅 Próximo Dia";
+
+  const isToday     = displayDate === today;
+  const dayMatches  = FIFA_MATCHES.filter(m => m.date === displayDate);
+  const dayAgenda   = agenda.filter(e => e.date === displayDate && e.personId !== "__team__");
+
+  // LiveMode broadcast match for this day
+  const livemodeMatch = dayMatches.find(m => broadcastData?.[m.id]?.enabled);
+
+  // Cities where team is located today (from logistics hotels)
+  const hotels = logistics?.hotels || [];
+  const teamCitiesSet = new Set();
+  team.forEach(p => {
+    const hotel = hotels.find(h =>
+      (h.personIds || []).includes(p.id) &&
+      h.checkIn && h.checkOut &&
+      displayDate >= h.checkIn && displayDate < h.checkOut
+    );
+    if (hotel?.city) teamCitiesSet.add(hotel.city);
+  });
+  const teamCities = [...teamCitiesSet];
+
+  // Commitments: total vs done
+  const totalCommitments = dayAgenda.length;
+  const doneCommitments  = dayAgenda.filter(e => !!e.done).length;
+  const pendingCommitments = totalCommitments - doneCommitments;
+  const progressPct = totalCommitments > 0 ? Math.round((doneCommitments / totalCommitments) * 100) : 0;
+
+  const dateObj  = new Date(displayDate + "T12:00:00");
+  const dateStr  = dateObj.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long" });
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+
+      {/* ── Date header ── */}
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 p-4">
-        <div className="text-lg font-bold text-slate-100 capitalize">
-          {headerLabel} — {dateStr}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-0.5">
+              {isToday ? "Hoje" : "Próximo dia ativo"}
+            </div>
+            <div className="text-lg font-bold text-slate-100 capitalize">{dateStr}</div>
+          </div>
+          {teamCities.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <span className="text-xs text-slate-500">📍 Equipa em:</span>
+              {teamCities.map(c => (
+                <span key={c} className="text-xs bg-slate-700 text-slate-200 px-2 py-0.5 rounded-full font-medium">{c}</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Day summary: Matches */}
-      {dayMatches.length > 0 && (
+      {/* ── KPIs do dia ── */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Compromissos */}
         <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
-          <div className="text-sm font-semibold text-slate-200 mb-3">⚽ Jogos ({dayMatches.length})</div>
-          <div className="space-y-2">
+          <div className="text-xs text-slate-400 mb-1">📋 Compromissos</div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-slate-100">{totalCommitments}</span>
+            {totalCommitments > 0 && (
+              <span className="text-sm text-slate-400 mb-0.5">total</span>
+            )}
+          </div>
+          {totalCommitments > 0 && (
+            <>
+              <div className="flex items-center justify-between text-xs mt-2 mb-1">
+                <span className="text-emerald-400">✓ {doneCommitments} feitos</span>
+                <span className={pendingCommitments > 0 ? "text-amber-400" : "text-slate-500"}>
+                  {pendingCommitments > 0 ? `${pendingCommitments} pendentes` : "tudo feito!"}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{width:`${progressPct}%`, background: progressPct === 100 ? "#10b981" : "#f59e0b"}}/>
+              </div>
+            </>
+          )}
+          {totalCommitments === 0 && (
+            <div className="text-xs text-slate-500 mt-1">Nenhum compromisso</div>
+          )}
+        </div>
+
+        {/* Jogos do Mundial no dia */}
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
+          <div className="text-xs text-slate-400 mb-1">⚽ Jogos do Mundial</div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-slate-100">{dayMatches.length}</span>
+            {dayMatches.length > 0 && (
+              <span className="text-sm text-slate-400 mb-0.5">jogos</span>
+            )}
+          </div>
+          {dayMatches.length > 0 ? (
+            <div className="text-xs text-slate-400 mt-1.5">
+              {[...new Set(dayMatches.map(m => m.city))].slice(0,3).join(" · ")}
+              {[...new Set(dayMatches.map(m => m.city))].length > 3 && " …"}
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500 mt-1">Sem jogos hoje</div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Jogo LiveMode ── */}
+      {livemodeMatch ? (
+        <div className="rounded-2xl border border-red-500/40 overflow-hidden"
+          style={{background:"linear-gradient(135deg,#1e1217 0%,#1a1a2e 100%)"}}>
+          {/* Header */}
+          <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"/>
+            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">LiveMode no ar hoje</span>
+          </div>
+
+          {/* Match info */}
+          <div className="px-4 pb-3 flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-lg font-bold text-slate-100 leading-tight">
+                {tTeam(livemodeMatch.home)} <span className="text-slate-500">×</span> {tTeam(livemodeMatch.away)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                <span>📍 {livemodeMatch.city}</span>
+                <Badge color={STAGE_COLORS[livemodeMatch.stage]||"#64748b"}>{tStage(livemodeMatch.stage)}</Badge>
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">{livemodeMatch.venue}</div>
+            </div>
+            <div className="text-right text-xs shrink-0 text-slate-400">
+              <div>⚽ Apito: <span className="text-slate-200 font-medium">{livemodeMatch.time}</span> <span className="text-slate-600">local</span></div>
+              <div>🇵🇹 <span className="text-slate-200 font-medium">{ptTime(livemodeMatch.time, livemodeMatch.city)}</span> <span className="text-slate-600">PT</span></div>
+            </div>
+          </div>
+
+          {/* On-air highlight */}
+          {broadcastData[livemodeMatch.id]?.preGame ? (
+            <div className="mx-3 mb-3 rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+              style={{background:"#ef444422", border:"1px solid #ef444444"}}>
+              <div>
+                <div className="text-xs text-red-300 font-semibold uppercase tracking-wider mb-0.5">🔴 Entramos no ar</div>
+                <div className="text-2xl font-bold text-white">{broadcastData[livemodeMatch.id].preGame} <span className="text-sm font-normal text-red-300">PT</span></div>
+                <div className="text-xs text-red-400/70 mt-0.5">
+                  {localFromPT(broadcastData[livemodeMatch.id].preGame, livemodeMatch.city)} hora local
+                </div>
+              </div>
+              <div className="text-4xl opacity-30">📡</div>
+            </div>
+          ) : (
+            <div className="mx-3 mb-3 rounded-xl px-4 py-2.5 border border-slate-700/40 bg-slate-800/40">
+              <div className="text-xs text-slate-500">⚠️ Horário de pré-jogo não definido — define na aba Calendário</div>
+            </div>
+          )}
+
+          {/* Post-game end time */}
+          {broadcastData[livemodeMatch.id]?.postGame && (
+            <div className="px-4 pb-4">
+              <div className="text-xs text-slate-500">
+                ■ Fim previsto: <span className="text-slate-300 font-medium">{broadcastData[livemodeMatch.id].postGame} PT</span>
+                <span className="text-slate-600"> · {localFromPT(broadcastData[livemodeMatch.id].postGame, livemodeMatch.city)} local</span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : dayMatches.length > 0 ? (
+        <div className="bg-slate-800/40 rounded-2xl border border-slate-700/30 px-4 py-3">
+          <div className="text-xs text-slate-500">📡 Sem emissão LiveMode programada para hoje</div>
+        </div>
+      ) : null}
+
+      {/* ── Todos os jogos do dia ── */}
+      {dayMatches.length > 0 && (
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700/50">
+            <span className="text-sm font-semibold text-slate-200">⚽ Todos os jogos de hoje ({dayMatches.length})</span>
+          </div>
+          <div className="divide-y divide-slate-700/30">
             {dayMatches.map(m => {
               const bc = broadcastData?.[m.id];
               const pt = ptTime(m.time, m.city);
+              const isLive = bc?.enabled;
               return (
-                <div key={m.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
-                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">{tTeam(m.home)} × {tTeam(m.away)}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">📍 {m.city} · {m.venue}</div>
+                <div key={m.id} className={`px-4 py-2.5 flex items-center gap-3 flex-wrap ${isLive ? "bg-red-950/20" : ""}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isLive && <span className="text-xs font-bold text-red-400">📡</span>}
+                      <span className="text-sm font-medium text-slate-200 truncate">
+                        {tTeam(m.home)} × {tTeam(m.away)}
+                      </span>
                     </div>
-                    <div className="text-xs text-slate-400 text-right shrink-0">
-                      <div>🕐 {m.time} local</div>
-                      <div className="text-slate-500">🇵🇹 {pt} PT</div>
-                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">📍 {m.city}</div>
                   </div>
-                  {bc?.enabled && (
-                    <div className="mt-2 pt-2 border-t border-slate-700/30 text-xs">
-                      <span className="text-red-400 font-medium">📡 Emissão ao vivo</span>
-                      {bc.preGame && <div className="text-slate-400">Pré-jogo: 🇵🇹 {bc.preGame}</div>}
-                      {bc.postGame && <div className="text-slate-400">Pós-jogo: 🇵🇹 {bc.postGame}</div>}
-                    </div>
-                  )}
+                  <div className="text-right text-xs text-slate-400 shrink-0">
+                    <div>{m.time} local</div>
+                    <div className="text-slate-500">🇵🇹 {pt}</div>
+                  </div>
                 </div>
               );
             })}
@@ -484,28 +628,43 @@ function Home({ team, agenda, broadcastData }) {
         </div>
       )}
 
-      {/* Day summary: Agenda items */}
+      {/* ── Compromissos do dia ── */}
       {dayAgenda.length > 0 && (
-        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-4">
-          <div className="text-sm font-semibold text-slate-200 mb-3">📋 Pauta ({dayAgenda.length})</div>
-          <div className="space-y-2">
+        <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+            <span className="text-sm font-semibold text-slate-200">📋 Compromissos do dia</span>
+            <span className="text-xs text-slate-400">{doneCommitments}/{totalCommitments} feitos</span>
+          </div>
+          <div className="divide-y divide-slate-700/30">
             {dayAgenda.map(e => {
-              const p = team.find(x => x.id === e.personId);
-              const ct = COMMITMENT_TYPES.find(t => t.id === e.type) || {emoji: "📝", label: e.customType || "Outro"};
+              const p  = team.find(x => x.id === e.personId);
+              const ct = COMMITMENT_TYPES.find(t => t.id === e.type) || {emoji:"📝", label: e.customType || "Outro", color:"#94a3b8"};
               const linkedMatch = e.matchId ? FIFA_MATCHES.find(m => m.id === e.matchId) : null;
+              const done = !!e.done;
               return (
-                <div key={e.id} className="p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/30">
-                  <div className="flex items-start gap-2 flex-wrap">
-                    <span className="text-base shrink-0">{ct.emoji}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-medium text-slate-200">{ct.label}</span>
-                        {p && <Avatar name={p.name} color={p.color} size="sm"/>}
-                      </div>
-                      {e.time && <div className="text-xs text-slate-400 mt-0.5">🕐 {e.time}</div>}
-                      {linkedMatch && <div className="text-xs text-slate-400 mt-0.5">⚽ {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)}</div>}
-                      {e.notes && <div className="text-xs text-slate-500 mt-0.5">📝 {e.notes}</div>}
+                <div key={e.id} className={`px-4 py-2.5 flex items-start gap-3 ${done ? "opacity-50" : ""}`}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 mt-0.5"
+                    style={{background:ct.color+"22", color:ct.color}}>
+                    {ct.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-sm font-medium ${done ? "line-through text-slate-500" : "text-slate-200"}`}>
+                        {e.type === "outro" && e.customType ? e.customType : ct.label}
+                      </span>
+                      {done && <span className="text-xs text-emerald-500 font-medium">✓</span>}
                     </div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap text-xs text-slate-400">
+                      {p && (
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{background:p.color}}/>
+                          {p.name.split(" ")[0]}
+                        </span>
+                      )}
+                      {e.time && <span>🕐 {e.time}</span>}
+                      {linkedMatch && <span>⚽ {tTeam(linkedMatch.home)} × {tTeam(linkedMatch.away)}</span>}
+                    </div>
+                    {e.notes && <div className="text-xs text-slate-500 mt-0.5 truncate">{e.notes}</div>}
                   </div>
                 </div>
               );
@@ -514,37 +673,14 @@ function Home({ team, agenda, broadcastData }) {
         </div>
       )}
 
-      {/* Summary stats */}
-      <div>
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 Resumo Geral</div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {(() => {
-            const coveredMatchIds = new Set(team.flatMap(p => p.assignments));
-            const cityPeople = {};
-            team.forEach(p => {
-              p.assignments.forEach(mid => {
-                const m = FIFA_MATCHES.find(x => x.id === mid);
-                if (!m) return;
-                if (!cityPeople[m.city]) cityPeople[m.city] = new Set();
-                cityPeople[m.city].add(p.id);
-              });
-            });
-            const stats = [
-              {emoji:"👥",label:"Membros",value:team.length,color:"#3b82f6"},
-              {emoji:"⚽",label:"Jogos Cobertos",value:coveredMatchIds.size,color:"#22c55e"},
-              {emoji:"📋",label:"Total de Pautas",value:team.reduce((s,p)=>s+p.assignments.length,0),color:"#f59e0b"},
-              {emoji:"🏙️",label:"Cidades",value:Object.keys(cityPeople).length,color:"#ec4899"},
-            ];
-            return stats.map(s=>(
-              <div key={s.label} style={{borderColor:s.color+"33"}} className="bg-slate-800/70 rounded-2xl p-4 border">
-                <div className="text-2xl mb-1">{s.emoji}</div>
-                <div style={{color:s.color}} className="text-2xl font-bold">{s.value}</div>
-                <div className="text-xs text-slate-400">{s.label}</div>
-              </div>
-            ));
-          })()}
+      {/* ── Empty state ── */}
+      {dayMatches.length === 0 && dayAgenda.length === 0 && (
+        <div className="py-12 text-center text-slate-500">
+          <div className="text-4xl mb-3">📭</div>
+          <div className="text-sm">Sem atividade para este dia</div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 }
@@ -1140,7 +1276,12 @@ function cType(id) { return COMMITMENT_TYPES.find(t=>t.id===id)||COMMITMENT_TYPE
 
 // ── Entry form modal ──────────────────────────────────────────────────────────
 function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
-  const [f, setF] = useState(entry);
+  // Normalise: support legacy single personId → personIds array
+  const initPersonIds = entry.personIds
+    ? entry.personIds
+    : entry.personId ? [entry.personId] : [];
+
+  const [f, setF] = useState({...entry, personIds: initPersonIds});
   const ct = cType(f.type);
   const matchesOnDay = FIFA_MATCHES.filter(m=>m.date===date);
   const availableTypes = userRole==="comercial" ? COMMITMENT_TYPES.filter(t=>t.id==="comercial")
@@ -1148,6 +1289,15 @@ function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
     : COMMITMENT_TYPES;
 
   function field(key, val) { setF(p=>({...p,[key]:val})); }
+
+  function togglePerson(pid) {
+    setF(prev=>{
+      const ids = prev.personIds || [];
+      return {...prev, personIds: ids.includes(pid) ? ids.filter(x=>x!==pid) : [...ids, pid]};
+    });
+  }
+
+  const canSave = (f.personIds||[]).length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
@@ -1158,17 +1308,39 @@ function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg leading-none">✕</button>
         </div>
         <div className="p-4 space-y-3">
-          {/* Person */}
-          {!entry.personId && (
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">Pessoa</label>
-              <select value={f.personId||""} onChange={e=>field("personId",parseInt(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none">
-                <option value="">Selecionar…</option>
-                {team.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+
+          {/* ── Pessoas (multi-select chips) ── */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs text-slate-400">👥 Pessoa(s)</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={()=>setF(p=>({...p,personIds:team.map(x=>x.id)}))}
+                  className="text-xs text-slate-500 hover:text-emerald-400 transition-colors">Todos</button>
+                <span className="text-slate-700">·</span>
+                <button type="button" onClick={()=>setF(p=>({...p,personIds:[]}))}
+                  className="text-xs text-slate-500 hover:text-red-400 transition-colors">Limpar</button>
+              </div>
             </div>
-          )}
+            <div className="flex gap-2 flex-wrap">
+              {team.map(p=>{
+                const sel = (f.personIds||[]).includes(p.id);
+                return (
+                  <button key={p.id} type="button" onClick={()=>togglePerson(p.id)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all"
+                    style={sel
+                      ? {background:p.color+"33",borderColor:p.color+"88",color:p.color}
+                      : {background:"transparent",borderColor:"#475569",color:"#94a3b8"}}>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{background:sel?p.color:"#475569"}}/>
+                    {p.name.split(" ")[0]}
+                    {sel && <span style={{color:p.color}}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {(f.personIds||[]).length === 0 && (
+              <p className="text-xs text-red-400 mt-1">Seleciona pelo menos uma pessoa</p>
+            )}
+          </div>
 
           {/* Type + time */}
           <div className="grid grid-cols-2 gap-3">
@@ -1183,6 +1355,26 @@ function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
               <label className="text-xs text-slate-400 mb-1 block">Horário (local)</label>
               <input type="time" value={f.time} onChange={e=>field("time",e.target.value)}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="text-xs text-slate-400 mb-1.5 block">Estado</label>
+            <div className="flex gap-2">
+              {[
+                {id:"confirmed", label:"✅ Confirmado",   color:"#10b981"},
+                {id:"pending",   label:"⏳ A confirmar",  color:"#f59e0b"},
+                {id:"cancelled", label:"❌ Cancelado",    color:"#ef4444"},
+              ].map(s=>(
+                <button key={s.id} type="button" onClick={()=>field("status",s.id)}
+                  className="flex-1 py-1.5 rounded-xl border text-xs font-medium transition-all"
+                  style={f.status===s.id
+                    ? {background:s.color+"33", borderColor:s.color+"88", color:s.color}
+                    : {background:"transparent", borderColor:"#475569", color:"#94a3b8"}}>
+                  {s.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1235,10 +1427,147 @@ function EntryForm({ entry, team, date, onSave, onClose, onDelete, userRole }) {
             )}
             <div className="flex-1"/>
             <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors">Cancelar</button>
-            <button onClick={()=>onSave(f)} disabled={!f.personId}
+            <button onClick={()=>onSave(f)} disabled={!canSave}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl text-sm font-medium transition-colors">
               Guardar
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── WEEK VIEW ────────────────────────────────────────────────────────────────
+function WeekView({ selectedDate, setSelectedDate, agenda, team, logistics, broadcastData, isAdmin }) {
+  // Find the Monday of the week containing selectedDate
+  function getWeekDates(anchor) {
+    const d = new Date(anchor + "T12:00:00Z");
+    const dow = d.getUTCDay(); // 0=Sun
+    const monday = new Date(d);
+    monday.setUTCDate(d.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+    return Array.from({length:7}, (_,i) => {
+      const x = new Date(monday);
+      x.setUTCDate(monday.getUTCDate() + i);
+      return x.toISOString().slice(0,10);
+    });
+  }
+
+  const [weekAnchor, setWeekAnchor] = useState(selectedDate);
+  const weekDates = getWeekDates(weekAnchor);
+  const DOW = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+
+  function prevWeek() {
+    const d = new Date(weekAnchor+"T12:00:00Z");
+    d.setUTCDate(d.getUTCDate()-7);
+    setWeekAnchor(d.toISOString().slice(0,10));
+  }
+  function nextWeek() {
+    const d = new Date(weekAnchor+"T12:00:00Z");
+    d.setUTCDate(d.getUTCDate()+7);
+    setWeekAnchor(d.toISOString().slice(0,10));
+  }
+
+  const STATUS_COLORS = {confirmed:"#10b981", pending:"#f59e0b", cancelled:"#ef4444"};
+
+  return (
+    <div className="space-y-2">
+      {/* Week nav */}
+      <div className="flex items-center justify-between">
+        <button onClick={prevWeek} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 text-sm">◀</button>
+        <span className="text-xs font-medium text-slate-300">
+          {weekDates[0]} → {weekDates[6]}
+        </span>
+        <button onClick={nextWeek} className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 text-sm">▶</button>
+      </div>
+
+      {/* Grid: days as columns, people as rows */}
+      <div className="overflow-x-auto no-scrollbar">
+        <div style={{minWidth: "640px"}}>
+          {/* Day headers */}
+          <div className="grid gap-1 mb-1" style={{gridTemplateColumns:`80px repeat(7,1fr)`}}>
+            <div/>
+            {weekDates.map((d,i) => {
+              const hasMatch = FIFA_MATCHES.some(m=>m.date===d);
+              const hasBroadcast = FIFA_MATCHES.some(m=>m.date===d && broadcastData?.[m.id]?.enabled);
+              const today = new Date().toISOString().slice(0,10);
+              return (
+                <button key={d} onClick={()=>setSelectedDate(d)}
+                  className={`rounded-xl py-1.5 text-center transition-all ${d===today?"ring-1 ring-emerald-500":""}`}
+                  style={{background: hasBroadcast?"#7f1d1d33" : hasMatch?"#78350f22":"#1e293b"}}>
+                  <div className="text-xs font-semibold text-slate-300">{DOW[i]}</div>
+                  <div className="text-xs text-slate-500">{d.slice(8)}/{d.slice(5,7)}</div>
+                  {hasBroadcast && <div className="text-xs text-red-400 font-bold">📡</div>}
+                  {hasMatch && !hasBroadcast && <div className="text-xs text-amber-400">⚽</div>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Person rows */}
+          {team.map(person => (
+            <div key={person.id} className="grid gap-1 mb-1" style={{gridTemplateColumns:`80px repeat(7,1fr)`}}>
+              {/* Person label */}
+              <div className="flex items-center gap-1.5 pr-1">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{background:person.color}}/>
+                <span className="text-xs text-slate-300 truncate font-medium">{person.name.split(" ")[0]}</span>
+              </div>
+              {/* Day cells */}
+              {weekDates.map(d => {
+                const entries = agenda.filter(e => {
+                  if (e.date !== d || e.personId === "__team__") return false;
+                  const ids = e.personIds || (e.personId ? [e.personId] : []);
+                  return ids.includes(person.id);
+                });
+                const hasHotel = (logistics?.hotels||[]).some(h =>
+                  h.checkIn <= d && h.checkOut > d && (h.personIds||[]).includes(person.id));
+                const hasFlight = (logistics?.flights||[]).some(f =>
+                  f.date === d && (f.personIds||[]).includes(person.id));
+                const hasConflict = entries.length > 1 && entries.filter(e=>e.time).length > 1;
+
+                return (
+                  <button key={d} onClick={()=>setSelectedDate(d)}
+                    className={`rounded-lg p-1 min-h-[52px] border text-left transition-all hover:border-emerald-600/50 ${
+                      hasConflict ? "border-red-500/50 bg-red-950/20"
+                      : entries.length > 0 ? "border-slate-600/50 bg-slate-800/70"
+                      : "border-slate-700/30 bg-slate-800/30"
+                    }`}>
+                    {/* Logistics dots */}
+                    <div className="flex gap-0.5 mb-0.5">
+                      {hasFlight && <span className="text-xs">✈️</span>}
+                      {hasHotel  && <span className="text-xs">🌙</span>}
+                      {hasConflict && <span className="text-xs">⚠️</span>}
+                    </div>
+                    {/* Entry pills */}
+                    <div className="space-y-0.5">
+                      {entries.slice(0,3).map(e => {
+                        const ct = COMMITMENT_TYPES.find(t=>t.id===e.type)||COMMITMENT_TYPES[COMMITMENT_TYPES.length-1];
+                        const statusColor = STATUS_COLORS[e.status] || STATUS_COLORS.confirmed;
+                        return (
+                          <div key={e.id} className="flex items-center gap-0.5 rounded px-1 py-0.5"
+                            style={{background:ct.color+"22"}}>
+                            <span className="text-xs leading-none">{ct.emoji}</span>
+                            {e.time && <span className="text-xs text-slate-400 leading-none">{e.time.slice(0,5)}</span>}
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0 ml-auto" style={{background:statusColor}}/>
+                          </div>
+                        );
+                      })}
+                      {entries.length > 3 && (
+                        <div className="text-xs text-slate-500 pl-1">+{entries.length-3}</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+
+          {/* Legend */}
+          <div className="flex gap-4 text-xs text-slate-600 mt-2 pt-2 border-t border-slate-700/30 flex-wrap">
+            <span><span className="text-emerald-400 mr-1">●</span>Confirmado</span>
+            <span><span className="text-amber-400 mr-1">●</span>A confirmar</span>
+            <span><span className="text-red-400 mr-1">●</span>Cancelado / Conflito</span>
+            <span>· Clica numa célula para ir para esse dia</span>
           </div>
         </div>
       </div>
@@ -1252,25 +1581,80 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
   const [selectedDate, setSelectedDate] = useState("2026-06-11");
   const [showForm, setShowForm]         = useState(false);
   const [formEntry, setFormEntry]       = useState(null);
+  const [viewMode,  setViewMode]        = useState("day"); // "day" | "week"
+  const [briefingMatchId, setBriefingMatchId] = useState(null); // match id being edited
 
-  const dayEntries    = agenda.filter(e=>e.date===selectedDate);
+  const dayEntries    = agenda.filter(e=>e.date===selectedDate && (
+    e.personId === "__team__" ? false :
+    e.personIds ? e.personIds.length > 0 : !!e.personId
+  ));
   const dayMatches    = FIFA_MATCHES.filter(m=>m.date===selectedDate);
   const hasMatchToday = dayMatches.length > 0;
 
-  function blankEntry(personId=null) {
-    const defaultType = userRole==="comercial" ? "comercial" : userRole==="redes" ? "redes" : "jogo";
-    return {id:null,date:selectedDate,personId,type:defaultType,customType:"",time:"",transportTime:"",notes:"",matchId:null};
+  // ── Conflict detection ──────────────────────────────────────────────────────
+  // A conflict = same person, same day, two entries within 60min of each other
+  // OR a manual entry overlapping with a logistics flight
+  function detectConflicts(date, entries, flights) {
+    const issues = [];
+    const personEntries = {};
+    entries.forEach(e => {
+      const ids = e.personIds || (e.personId ? [e.personId] : []);
+      ids.forEach(pid => {
+        if (!personEntries[pid]) personEntries[pid] = [];
+        if (e.time) personEntries[pid].push({id:e.id, time:e.time, label: e.type});
+      });
+    });
+    // Add flights as entries
+    (flights||[]).filter(f=>f.date===date).forEach(f => {
+      (f.personIds||[]).forEach(pid => {
+        if (!personEntries[pid]) personEntries[pid] = [];
+        if (f.depTime) personEntries[pid].push({id:"f"+f.id, time:f.depTime, label:"voo"});
+      });
+    });
+    Object.entries(personEntries).forEach(([pid, evts]) => {
+      const sorted = evts.filter(e=>e.time).sort((a,b)=>a.time.localeCompare(b.time));
+      for (let i=0; i<sorted.length-1; i++) {
+        const [h1,m1] = sorted[i].time.split(":").map(Number);
+        const [h2,m2] = sorted[i+1].time.split(":").map(Number);
+        const diff = (h2*60+m2) - (h1*60+m1);
+        if (diff < 60 && diff >= 0) {
+          issues.push({personId:parseInt(pid), a:sorted[i], b:sorted[i+1], diff});
+        }
+      }
+    });
+    return issues;
   }
 
-  function openAdd(personId) { setFormEntry(blankEntry(personId)); setShowForm(true); }
-  function openEdit(e)       { setFormEntry({...e});                setShowForm(true); }
+  // Game briefings stored in agenda as special entries
+  function getGameBriefing(matchId) {
+    return agenda.find(e => e.type==="game_briefing" && e.matchId===matchId);
+  }
+  function saveGameBriefing(matchId, notes) {
+    const existing = getGameBriefing(matchId);
+    const match = FIFA_MATCHES.find(m=>m.id===matchId);
+    if (existing) {
+      setAgenda(prev=>prev.map(e=>e.id===existing.id ? {...e, notes} : e));
+    } else {
+      setAgenda(prev=>[...prev,{id:"brief_"+matchId, date:match?.date||"", personId:"__team__", personIds:[], type:"game_briefing", matchId, notes, time:""}]);
+    }
+  }
+
+  function blankEntry(personIds=[]) {
+    const defaultType = userRole==="comercial" ? "comercial" : userRole==="redes" ? "redes" : "jogo";
+    return {id:null,date:selectedDate,personIds,type:defaultType,customType:"",time:"",transportTime:"",notes:"",matchId:null,status:"confirmed",briefing:""};
+  }
+
+  function openAdd(personId) { setFormEntry(blankEntry(personId ? [personId] : [])); setShowForm(true); }
+  function openEdit(e)       { setFormEntry({...e, personIds: e.personIds || (e.personId ? [e.personId] : [])}); setShowForm(true); }
 
   function saveEntry(f) {
-    if (!f.personId) return;
+    if (!f.personIds || f.personIds.length === 0) return;
+    // Backward compat: keep personId as first person for legacy reads
+    const entry = {...f, personId: f.personIds[0]};
     if (f.id) {
-      setAgenda(prev=>prev.map(e=>e.id===f.id?f:e));
+      setAgenda(prev=>prev.map(e=>e.id===f.id ? entry : e));
     } else {
-      setAgenda(prev=>[...prev,{...f,id:Date.now().toString()+Math.random()}]);
+      setAgenda(prev=>[...prev,{...entry, id:Date.now().toString()+Math.random()}]);
     }
     setShowForm(false);
   }
@@ -1342,14 +1726,52 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
           onSave={saveEntry} onClose={()=>setShowForm(false)} onDelete={deleteEntry}/>
       )}
 
+      {/* View toggle + add button */}
+      <div className="flex items-center gap-2">
+        <div className="flex bg-slate-800 border border-slate-700 rounded-xl p-0.5 gap-0.5">
+          {[{id:"day",label:"📋 Dia"},{id:"week",label:"📅 Semana"}].map(v=>(
+            <button key={v.id} onClick={()=>setViewMode(v.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode===v.id?"bg-emerald-600 text-white":"text-slate-400 hover:text-slate-200"}`}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1"/>
+        {(isAdmin || userRole==="transmite" || userRole==="comercial" || userRole==="redes") && viewMode==="day" && (
+          <button onClick={()=>openAdd(null)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors">
+            + Compromisso
+          </button>
+        )}
+      </div>
+
+      {/* ── WEEK VIEW ── */}
+      {viewMode==="week" && (
+        <WeekView
+          selectedDate={selectedDate}
+          setSelectedDate={d=>{ setSelectedDate(d); setViewMode("day"); }}
+          agenda={agenda}
+          team={team}
+          logistics={logistics}
+          broadcastData={broadcastData}
+          isAdmin={isAdmin}
+        />
+      )}
+
+      {/* ── DAY VIEW ── */}
+      {viewMode==="day" && (<>
+
       {/* Date bar */}
       <div ref={dateBarRef} className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
         {AGENDA_DATES.map(d=>{
-          const hasEntries  = agenda.some(e=>e.date===d);
+          const hasEntries  = agenda.some(e=>e.date===d && e.personId!=="__team__");
           const hasMatch    = FIFA_MATCHES.some(m=>m.date===d);
           const hasLogistic = (logistics?.flights||[]).some(f=>f.date===d) ||
                               (logistics?.hotels||[]).some(h=>h.checkIn===d);
           const isActive    = d===selectedDate;
+          // Conflict indicator
+          const dEntries = agenda.filter(e=>e.date===d && e.personId!=="__team__" && (e.personIds?.length>0||e.personId));
+          const hasConflict = detectConflicts(d, dEntries, logistics?.flights).length > 0;
           return (
             <button key={d} data-active={isActive} onClick={()=>setSelectedDate(d)}
               className={`flex flex-col items-center px-2.5 py-1.5 rounded-xl border text-xs whitespace-nowrap shrink-0 transition-all ${
@@ -1361,6 +1783,7 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                 {hasMatch    && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"/>}
                 {hasEntries  && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"/>}
                 {hasLogistic && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"/>}
+                {hasConflict && <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>}
               </div>
             </button>
           );
@@ -1377,13 +1800,34 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
             </div>
           )}
         </div>
-        {(isAdmin || userRole==="transmite" || userRole==="comercial" || userRole==="redes")&&(
-          <button onClick={()=>openAdd(null)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition-colors">
-            + Compromisso
-          </button>
-        )}
       </div>
+
+      {/* ── CONFLICT ALERTS ── */}
+      {(()=>{
+        const conflicts = detectConflicts(selectedDate, dayEntries, logistics?.flights);
+        if (conflicts.length === 0) return null;
+        return (
+          <div className="rounded-2xl border border-red-500/40 bg-red-950/20 px-4 py-3 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-red-400 uppercase tracking-wider">
+              ⚠️ {conflicts.length} conflito{conflicts.length!==1?"s":""} de horário
+            </div>
+            {conflicts.map((c,i) => {
+              const p = team.find(x=>x.id===c.personId);
+              return (
+                <div key={i} className="text-xs text-red-300 flex items-center gap-2">
+                  {p && <span style={{color:p.color}}>●</span>}
+                  <span>{p?.name.split(" ")[0] || "?"}</span>
+                  <span className="text-red-400/70">·</span>
+                  <span className="text-red-200">{c.a.time} ({c.a.label})</span>
+                  <span className="text-red-400/70">e</span>
+                  <span className="text-red-200">{c.b.time} ({c.b.label})</span>
+                  <span className="text-red-400/70">— apenas {c.diff}min de intervalo</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ── Reunião de Equipa ── */}
       <div className="rounded-2xl border overflow-hidden" style={{borderColor:modeColor+"44"}}>
@@ -1567,6 +2011,39 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                       })}
                     </div>
                   )}
+                  {/* Game Briefing */}
+                  {(()=>{
+                    const brief = getGameBriefing(m.id);
+                    const isEditing = briefingMatchId === m.id;
+                    if (!isAdmin && !brief?.notes) return null;
+                    return (
+                      <div className="border-t border-slate-700/30 pt-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">📋 Briefing do Jogo</span>
+                          {isAdmin && (
+                            <button onClick={()=>setBriefingMatchId(isEditing?null:m.id)}
+                              className="text-xs text-slate-500 hover:text-emerald-400 transition-colors">
+                              {isEditing ? "✓ Fechar" : "✏️ Editar"}
+                            </button>
+                          )}
+                        </div>
+                        {isAdmin && isEditing ? (
+                          <textarea
+                            defaultValue={brief?.notes||""}
+                            onBlur={e=>saveGameBriefing(m.id, e.target.value)}
+                            rows={4}
+                            placeholder="Credenciais a levar, ponto de encontro, nome do responsável FIFA, acesso ao estádio, dress code, observações…"
+                            className="w-full px-3 py-2 bg-slate-700/60 border border-slate-600 rounded-xl text-xs text-slate-200 placeholder-slate-500 outline-none resize-none"/>
+                        ) : brief?.notes ? (
+                          <div className="text-xs text-slate-300 whitespace-pre-wrap bg-slate-800/60 rounded-xl px-3 py-2 border border-slate-700/40">
+                            {brief.notes}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-600 italic">Sem briefing ainda. Clica em Editar para adicionar.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -1633,18 +2110,37 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
 
       <div className="space-y-3">
         {team.map(person=>{
-          const entries = dayEntries.filter(e=>e.personId===person.id)
-            .sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+          // Support both personIds (new) and personId (legacy)
+          const entries = dayEntries.filter(e=>{
+            const ids = e.personIds || (e.personId ? [e.personId] : []);
+            return ids.includes(person.id);
+          }).sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
 
           // ── Auto logistics for this person ──
           const logFlights = (logistics?.flights||[])
             .filter(f=>f.date===selectedDate && (f.personIds||[]).includes(person.id))
             .sort((a,b)=>(a.depTime||"").localeCompare(b.depTime||""));
-          const logHotel = (logistics?.hotels||[])
-            .find(h=>h.checkIn<=selectedDate && h.checkOut>selectedDate && (h.personIds||[]).includes(person.id)) || null;
 
-          // City: prefer hotel city, fall back to last flight destination
-          const personCity = logHotel?.city ||
+          // Find hotels: "wake up" hotel = checked in before today and checks out today or after
+          // "sleep" hotel = checks in today
+          const allHotels = logistics?.hotels || [];
+          const hotelWake  = allHotels.find(h =>
+            h.checkIn < selectedDate && h.checkOut === selectedDate &&
+            (h.personIds||[]).includes(person.id)) || null;
+          const hotelSleep = allHotels.find(h =>
+            h.checkIn === selectedDate &&
+            (h.personIds||[]).includes(person.id)) || null;
+          // Standard: staying hotel (checked in before, checks out after today)
+          const hotelStay  = allHotels.find(h =>
+            h.checkIn <= selectedDate && h.checkOut > selectedDate &&
+            (h.personIds||[]).includes(person.id)) || null;
+
+          // Determine which hotel(s) to show
+          const hasDualHotel = hotelWake && hotelSleep;
+          const logHotel = hasDualHotel ? null : hotelStay;
+
+          // City: prefer stay hotel, then sleep hotel, then last flight destination
+          const personCity = hotelStay?.city || hotelSleep?.city ||
             (logFlights.length>0 ? logFlights[logFlights.length-1].to?.split(/[·\-]/)[0].trim() : null);
 
           // Merge manual entries with flights into a single sorted timeline
@@ -1653,7 +2149,7 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
             ...logFlights.map(f=>({_k:"flight", _sort:f.depTime||"99:99", data:f})),
           ].sort((a,b)=>a._sort.localeCompare(b._sort));
 
-          const hasAnything = timelineItems.length>0 || logHotel;
+          const hasAnything = timelineItems.length>0 || logHotel || hasDualHotel;
 
           return (
             <div key={person.id} className="bg-slate-800/70 rounded-2xl border border-slate-700/50 overflow-hidden">
@@ -1708,7 +2204,8 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                         (userRole==="comercial" && e.type==="comercial") ||
                         (userRole==="redes" && e.type==="redes");
                       return <EntryCard key={e.id} e={e} ct={ct} linkedMatch={linkedMatch}
-                               isAdmin={isAdmin} canEdit={canEdit} onEdit={()=>openEdit(e)} onToggleDone={()=>toggleDone(e.id)}/>;
+                               isAdmin={isAdmin} canEdit={canEdit} onEdit={()=>openEdit(e)} onToggleDone={()=>toggleDone(e.id)}
+                               team={team} currentPersonId={person.id}/>;
                     }
                     // Auto flight entry
                     const f = item.data;
@@ -1736,8 +2233,41 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                     );
                   })}
 
-                  {/* Hotel tonight — always at the bottom */}
-                  {logHotel&&(
+                  {/* Hotel(s) — always at the bottom */}
+                  {hasDualHotel ? (
+                    <div className="px-4 py-3 bg-teal-950/20 space-y-2">
+                      {/* Hotel where they woke up (checking out today) */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{background:"#f59e0b22",color:"#f59e0b"}}>🌅</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-slate-500 font-medium">Acordou em</span>
+                            <span className="text-sm font-semibold text-slate-200">{hotelWake.name||"—"}</span>
+                            {hotelWake.city&&<span className="text-xs text-slate-400">📍 {hotelWake.city}</span>}
+                            <span className="text-xs text-amber-600/70">check-out</span>
+                          </div>
+                          {hotelWake.notes&&<div className="text-xs text-slate-500 mt-0.5">{hotelWake.notes}</div>}
+                        </div>
+                        <span className="text-xs text-amber-400/60 shrink-0">auto</span>
+                      </div>
+                      {/* Hotel where they sleep (checking in today) */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{background:"#14b8a622",color:"#14b8a6"}}>🌙</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-slate-500 font-medium">Dorme em</span>
+                            <span className="text-sm font-semibold text-slate-200">{hotelSleep.name||"—"}</span>
+                            {hotelSleep.city&&<span className="text-xs text-slate-400">📍 {hotelSleep.city}</span>}
+                            <span className="text-xs text-teal-600/70">check-in</span>
+                          </div>
+                          {hotelSleep.notes&&<div className="text-xs text-slate-500 mt-0.5">{hotelSleep.notes}</div>}
+                        </div>
+                        <span className="text-xs text-teal-400 shrink-0">auto</span>
+                      </div>
+                    </div>
+                  ) : logHotel ? (
                     <div className="px-4 py-3 bg-teal-950/20">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
@@ -1752,18 +2282,25 @@ function Agenda({ team, isAdmin, userRole, agenda, setAgenda, pitchData, logisti
                         <span className="text-xs text-teal-400 shrink-0">auto</span>
                       </div>
                     </div>
-                  )}
+                  ) : null}
               </div>
             </div>
           );
         })}
       </div>
+
+      </>)} {/* end day view */}
     </div>
   );
 }
 
-function EntryCard({ e, ct, linkedMatch, isAdmin, canEdit, onEdit, onToggleDone }) {
+function EntryCard({ e, ct, linkedMatch, isAdmin, canEdit, onEdit, onToggleDone, team, currentPersonId }) {
   const done = !!e.done;
+  // Collect other persons on this shared entry (all except the card we're inside)
+  const personIds = e.personIds || (e.personId ? [e.personId] : []);
+  const otherPersons = team
+    ? personIds.filter(id=>id!==currentPersonId).map(id=>team.find(p=>p.id===id)).filter(Boolean)
+    : [];
   return (
     <div className={`px-4 py-3 transition-colors ${done ? "bg-slate-800/30" : ""}`}>
       <div className="flex items-start gap-3">
@@ -1791,8 +2328,22 @@ function EntryCard({ e, ct, linkedMatch, isAdmin, canEdit, onEdit, onToggleDone 
               {e.type==="outro"&&e.customType ? e.customType : ct.label}
             </span>
             {e.time&&<span className={`text-xs ${done ? "text-slate-600" : "text-slate-500"}`}>🕐 {e.time}</span>}
+            {!done && e.status==="pending"   && <span className="text-xs text-amber-400 font-medium">⏳ a confirmar</span>}
+            {!done && e.status==="cancelled" && <span className="text-xs text-red-400 font-medium">❌ cancelado</span>}
             {done && <span className="text-xs text-emerald-600 font-medium">✓ feito</span>}
           </div>
+          {/* Other persons sharing this entry */}
+          {otherPersons.length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              <span className="text-xs text-slate-600">com</span>
+              {otherPersons.map(p=>(
+                <span key={p.id} className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                  style={{background:p.color+"22",color:p.color}}>
+                  {p.name.split(" ")[0]}
+                </span>
+              ))}
+            </div>
+          )}
           {e.transportTime&&(
             <div className={`text-xs mt-0.5 flex items-center gap-1 font-medium ${done ? "text-slate-600" : "text-blue-400"}`}>
               🚌 Transporte: {e.transportTime}
@@ -1850,6 +2401,18 @@ function PitchTab({ team, isAdmin, userRole, pitchData, setPitchData }) {
   const baseMatches   = (isAdmin || userRole==="financeiro") ? FIFA_MATCHES : FIFA_MATCHES.filter(m=>getMD(m.id).inLoco);
   const filtered      = stageFilter==="all" ? baseMatches : baseMatches.filter(m=>m.stage===stageFilter);
 
+  // Sinergia pitch: Presentation Position + Centre Circle em jogos de Portugal ÷2
+  const SINERGIA_PITCH_IDS = ["touchline_partial","touchline_knockout","centre_circle"];
+  const sinergiaPitchUSD = inLocoMatches.reduce((s,m)=>{
+    if (m.home !== "Portugal" && m.away !== "Portugal") return s;
+    const md = getMD(m.id);
+    return s + SINERGIA_PITCH_IDS.reduce((ss,posId)=>{
+      if (!md.positions[posId]) return ss;
+      const pos = PITCH_POSITIONS_CATALOG.find(p=>p.id===posId);
+      return ss + (pos?.price||0);
+    },0);
+  },0) / 2;
+
   // Group catalog by category
   const bycat = {};
   PITCH_POSITIONS_CATALOG.forEach(p=>{ if(!bycat[p.cat]) bycat[p.cat]=[]; bycat[p.cat].push(p); });
@@ -1866,19 +2429,43 @@ function PitchTab({ team, isAdmin, userRole, pitchData, setPitchData }) {
           <div className="text-2xl font-bold text-blue-400">{totalPos}</div>
           <div className="text-xs text-slate-400 mt-0.5">Posições</div>
         </div>
-        {isAdmin && (
+        {isAdmin ? (
           <div className="bg-slate-800/70 rounded-2xl border border-amber-700/30 p-3 text-center">
             <div className="text-lg font-bold text-amber-400">${totalCost.toLocaleString()}</div>
             <div className="text-xs text-slate-400 mt-0.5">Custo total 🔒</div>
+            {sinergiaPitchUSD > 0 && (
+              <div className="text-xs text-emerald-400 font-semibold mt-1">-${sinergiaPitchUSD.toLocaleString()} sin.</div>
+            )}
           </div>
-        )}
-        {!isAdmin && (
+        ) : (
           <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 text-center opacity-30">
             <div className="text-lg font-bold text-slate-500">—</div>
             <div className="text-xs text-slate-500 mt-0.5">Orçamento</div>
           </div>
         )}
       </div>
+
+      {/* Sinergia summary banner — admin only, when applicable */}
+      {isAdmin && sinergiaPitchUSD > 0 && (
+        <div className="rounded-2xl border border-emerald-700/40 bg-emerald-950/20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-0.5">💚 Sinergia Portugal–Brasil</div>
+            <div className="text-xs text-slate-400">
+              Presentation Position + Centre Circle em jogos de Portugal ÷2
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-xs text-slate-400">Total Pitch</div>
+            <div className="text-amber-400 font-bold">${totalCost.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Desconto sinergia</div>
+            <div className="text-emerald-400 font-bold">-${sinergiaPitchUSD.toLocaleString()}</div>
+            <div className="border-t border-emerald-700/30 mt-1 pt-1">
+              <div className="text-xs text-slate-400">Custo líquido</div>
+              <div className="text-emerald-300 font-bold">${(totalCost - sinergiaPitchUSD).toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stage filter */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
@@ -2025,9 +2612,30 @@ function PitchTab({ team, isAdmin, userRole, pitchData, setPitchData }) {
 
                   {/* Match cost summary */}
                   {posCount>0 && (
-                    <div className="flex justify-between items-center pt-1 border-t border-slate-700/40 text-xs">
-                      <span className="text-slate-500">{posCount} posição{posCount!==1?"s":""} contratada{posCount!==1?"s":""}</span>
-                      {isAdmin && <span className="text-amber-400 font-semibold">${cost.toLocaleString()}</span>}
+                    <div className="pt-2 border-t border-slate-700/40 space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500">{posCount} posição{posCount!==1?"s":""} contratada{posCount!==1?"s":""}</span>
+                        {isAdmin && cost>0 && <span className="text-amber-400 font-semibold">${cost.toLocaleString()}</span>}
+                      </div>
+                      {isAdmin && cost>0 && (()=>{
+                        const isPort = m.home==="Portugal" || m.away==="Portugal";
+                        if (!isPort) return null;
+                        const sinCost = SINERGIA_PITCH_IDS.reduce((s,posId)=>{
+                          if (!md.positions[posId]) return s;
+                          const pos = PITCH_POSITIONS_CATALOG.find(p=>p.id===posId);
+                          return s + (pos?.price||0);
+                        },0) / 2;
+                        if (sinCost === 0) return null;
+                        return (
+                          <div className="flex justify-between items-center text-xs bg-emerald-950/30 border border-emerald-800/30 rounded-lg px-2 py-1.5">
+                            <span className="text-emerald-400 font-medium">💚 Sinergia Portugal–Brasil</span>
+                            <div className="text-right">
+                              <span className="text-emerald-400 font-bold">-${sinCost.toLocaleString()}</span>
+                              <span className="text-slate-500 ml-2">→ ${(cost-sinCost).toLocaleString()} líquido</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -2090,10 +2698,11 @@ function PitchTab({ team, isAdmin, userRole, pitchData, setPitchData }) {
 const LS_LOGISTICS_KEY = "livemode_mundial_logistics_v3";
 function loadLogistics() {
   try { const s=localStorage.getItem(LS_LOGISTICS_KEY); if(s) return JSON.parse(s); } catch {}
-  return { flights:[], hotels:[] };
+  return { flights:[], hotels:[], transport:{} };
 }
-// flights: [{ id, date, flightNo, from, to, depTime, arrTime, price, notes, personIds }]
-// hotels:  [{ id, city, name, checkIn, checkOut, price, notes, personIds }]
+// flights:   [{ id, date, flightNo, from, to, depTime, arrTime, price, notes, personIds }]
+// hotels:    [{ id, city, name, checkIn, checkOut, price, notes, personIds }]
+// transport: { "YYYY-MM-DD": { cost: number, notes: string } }
 
 const BLANK_FLIGHT_L = {id:null,date:"",flightNo:"",from:"",to:"",depTime:"",arrTime:"",pricePerPerson:0,notes:"",personIds:[]};
 // Total do voo = pricePerPerson × nº de pessoas (retrocompat: usa price se pricePerPerson ausente)
@@ -2296,8 +2905,9 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
   const [editHotel,  setEditHotel]  = useState(null);
   const [selDate,    setSelDate]    = useState("2026-06-11");
 
-  const flights = logistics.flights || [];
-  const hotels  = logistics.hotels  || [];
+  const flights   = logistics.flights   || [];
+  const hotels    = logistics.hotels    || [];
+  const transport = logistics.transport || {};
 
   function saveFlight(f) {
     const list = f.id ? flights.map(x=>x.id===f.id?f:x) : [...flights, {...f,id:uid()}];
@@ -2311,9 +2921,14 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
   }
   function deleteHotel(id) { setLogistics(p=>({...p, hotels:hotels.filter(h=>h.id!==id)})); }
 
-  const totalFlights = flights.reduce((s,f)=>s+flightCost(f),0);
-  const totalHotels  = hotels.reduce((s,h)=>s+(h.price||0),0);
-  const grandTotal   = totalFlights + totalHotels;
+  function setTransportDay(date, patch) {
+    setLogistics(p=>({...p, transport:{...(p.transport||{}), [date]:{...(p.transport?.[date]||{cost:0,notes:""}), ...patch}}}));
+  }
+
+  const totalFlights   = flights.reduce((s,f)=>s+flightCost(f),0);
+  const totalHotels    = hotels.reduce((s,h)=>s+(h.price||0),0);
+  const totalTransport = Object.values(transport).reduce((s,t)=>s+(t.cost||0),0);
+  const grandTotal     = totalFlights + totalHotels + totalTransport;
 
   // Por Dia: derived from catalog
   const dateIdx      = WC_DATES.indexOf(selDate);
@@ -2330,17 +2945,21 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
 
       {/* Financial stats — admin only */}
       {isAdmin && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <div className="bg-slate-800/70 rounded-2xl border border-blue-700/30 p-3 text-center">
-            <div className="text-xl font-bold text-blue-400">€{totalFlights.toLocaleString()}</div>
+            <div className="text-lg font-bold text-blue-400">€{totalFlights.toLocaleString()}</div>
             <div className="text-xs text-slate-400 mt-0.5">✈️ Passagens 🔒</div>
           </div>
           <div className="bg-slate-800/70 rounded-2xl border border-teal-700/30 p-3 text-center">
-            <div className="text-xl font-bold text-teal-400">€{totalHotels.toLocaleString()}</div>
+            <div className="text-lg font-bold text-teal-400">€{totalHotels.toLocaleString()}</div>
             <div className="text-xs text-slate-400 mt-0.5">🏨 Hotéis 🔒</div>
           </div>
+          <div className="bg-slate-800/70 rounded-2xl border border-orange-700/30 p-3 text-center">
+            <div className="text-lg font-bold text-orange-400">€{totalTransport.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-0.5">🚐 Transporte 🔒</div>
+          </div>
           <div className="bg-slate-800/70 rounded-2xl border border-amber-700/30 p-3 text-center">
-            <div className="text-xl font-bold text-amber-400">€{grandTotal.toLocaleString()}</div>
+            <div className="text-lg font-bold text-amber-400">€{grandTotal.toLocaleString()}</div>
             <div className="text-xs text-slate-400 mt-0.5">Total 🔒</div>
           </div>
         </div>
@@ -2348,9 +2967,14 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
 
       {/* Sub-tabs */}
       <div className="flex gap-1.5">
-        {[{id:"flights",label:"✈️ Voos"},{id:"hotels",label:"🏨 Hotéis"},{id:"day",label:"📅 Por Dia"}].map(t=>(
+        {[
+          {id:"flights",   label:"✈️ Voos"},
+          {id:"hotels",    label:"🏨 Hotéis"},
+          {id:"transport", label:"🚐 Transporte"},
+          {id:"day",       label:"📅 Por Dia"},
+        ].map(t=>(
           <button key={t.id} onClick={()=>setSubTab(t.id)}
-            className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${subTab===t.id?"bg-emerald-600 border-emerald-500 text-white":"bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200"}`}>
+            className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${subTab===t.id?"bg-emerald-600 border-emerald-500 text-white":"bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200"}`}>
             {t.label}
           </button>
         ))}
@@ -2470,6 +3094,121 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
         </div>
       )}
 
+      {/* ── TRANSPORTE ── */}
+      {subTab==="transport" && (
+        <div className="space-y-2">
+          {/* Summary */}
+          {totalTransport > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 bg-orange-950/20 border border-orange-700/30 rounded-2xl">
+              <div>
+                <div className="text-xs text-slate-400">Total registado</div>
+                <div className="text-lg font-bold text-orange-400">€{totalTransport.toLocaleString("pt-PT")}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-400">{Object.values(transport).filter(t=>t.cost>0).length} dias com custo</div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  média €{Math.round(totalTransport / Math.max(1, Object.values(transport).filter(t=>t.cost>0).length)).toLocaleString("pt-PT")}/dia
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-slate-500 px-1">
+            Regista o valor real gasto em transporte interno em cada dia de operação (Uber, van, táxi, shuttle, etc.)
+          </div>
+
+          {/* Day list — only show WC_DATES that have hotel occupancy or a value already entered */}
+          <div className="space-y-1.5">
+            {WC_DATES.filter(d => {
+              const hasHotel = hotels.some(h => h.checkIn <= d && h.checkOut > d);
+              const hasValue = (transport[d]?.cost || 0) > 0;
+              return hasHotel || hasValue;
+            }).map(d => {
+              const t    = transport[d] || {cost:0, notes:""};
+              const hasMatch = FIFA_MATCHES.some(m=>m.date===d);
+              const hasBroadcast = FIFA_MATCHES.some(m=>m.date===d && false); // placeholder
+              return (
+                <div key={d} className={`bg-slate-800/70 rounded-2xl border overflow-hidden transition-all ${
+                  (t.cost||0)>0 ? "border-orange-700/40" : "border-slate-700/40"
+                }`}>
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    {/* Date */}
+                    <div className="shrink-0 min-w-[70px]">
+                      <div className="text-xs font-semibold text-slate-300">{dowPT(d)}</div>
+                      <div className="text-xs text-slate-500">{d.slice(5).replace("-","/")}</div>
+                    </div>
+                    {/* Match indicator */}
+                    {hasMatch && (
+                      <span className="text-xs text-amber-400 shrink-0">⚽</span>
+                    )}
+                    {/* Cost input */}
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <span className="text-xs text-slate-500 shrink-0">€</span>
+                      {isAdmin ? (
+                        <input
+                          type="number" min="0" step="5"
+                          value={t.cost || ""}
+                          placeholder="0"
+                          onChange={e => setTransportDay(d, {cost: parseFloat(e.target.value)||0})}
+                          className="w-24 px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 outline-none focus:border-orange-500 text-center"/>
+                      ) : (
+                        <span className="text-sm font-medium text-slate-200">
+                          {(t.cost||0)>0 ? `€${t.cost.toLocaleString("pt-PT")}` : "—"}
+                        </span>
+                      )}
+                    </div>
+                    {/* Notes */}
+                    {isAdmin ? (
+                      <input
+                        type="text"
+                        value={t.notes || ""}
+                        placeholder="Ex: Uber, van alugada, shuttle FIFA…"
+                        onChange={e => setTransportDay(d, {notes: e.target.value})}
+                        className="flex-[2] px-2 py-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-slate-500"/>
+                    ) : t.notes ? (
+                      <span className="flex-[2] text-xs text-slate-500 truncate">{t.notes}</span>
+                    ) : null}
+                    {/* Total badge */}
+                    {(t.cost||0)>0 && (
+                      <span className="text-xs font-bold text-orange-400 shrink-0">€{t.cost.toLocaleString("pt-PT")}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Days with no hotel but want to add transport */}
+          {isAdmin && (
+            <div className="pt-2">
+              <div className="text-xs text-slate-600 px-1 mb-2">Outros dias (sem hotel registado):</div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {WC_DATES.filter(d => {
+                  const hasHotel = hotels.some(h => h.checkIn <= d && h.checkOut > d);
+                  const hasValue = (transport[d]?.cost || 0) > 0;
+                  return !hasHotel && !hasValue;
+                }).map(d => (
+                  <button key={d} onClick={() => setTransportDay(d, {cost:0, notes:""})}
+                    className="shrink-0 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-500 hover:text-slate-300 hover:border-slate-600 transition-colors whitespace-nowrap">
+                    {d.slice(5).replace("-","/")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {WC_DATES.filter(d => {
+            const hasHotel = hotels.some(h => h.checkIn <= d && h.checkOut > d);
+            const hasValue = (transport[d]?.cost || 0) > 0;
+            return hasHotel || hasValue;
+          }).length === 0 && (
+            <div className="py-10 text-center text-slate-500 text-sm">
+              Sem dias de operação. Adiciona hotéis primeiro para ver os dias disponíveis.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── POR DIA ── */}
       {subTab==="day" && (
         <div className="space-y-4">
@@ -2557,15 +3296,33 @@ function Logistics({ team, isAdmin, logistics, setLogistics }) {
 }
 
 
+
 // ── FINANCE DASHBOARD ────────────────────────────────────────────────────────
 const PER_DIEM_DAILY = 100;   // EUR por pessoa por dia (estimativa)
-const USD_EUR_RATE   = 0.92;  // Taxa de câmbio USD→EUR (ajustável)
 
-function FinanceDashboard({ team, agenda, pitchData, logistics }) {
+function FinanceDashboard({ team, agenda, pitchData, logistics, setLogistics, simulador, setSimulador }) {
   const flights = logistics.flights || [];
   const hotels  = logistics.hotels  || [];
   const [showResumo, setShowResumo] = useState(true);
   const [showPitch,  setShowPitch]  = useState(false);
+  const [finSubTab,  setFinSubTab]  = useState("dashboard"); // "dashboard" | "simulador"
+  const [usdEurRate, setUsdEurRate] = useState(0.92);
+  const [rateStatus, setRateStatus] = useState("loading"); // "loading"|"live"|"fallback"
+
+  // Fetch live USD→EUR rate from Frankfurter (free, no key)
+  useEffect(() => {
+    fetch("https://api.frankfurter.app/latest?from=USD&to=EUR")
+      .then(r => r.json())
+      .then(data => {
+        if (data?.rates?.EUR) {
+          setUsdEurRate(parseFloat(data.rates.EUR.toFixed(4)));
+          setRateStatus("live");
+        } else setRateStatus("fallback");
+      })
+      .catch(() => setRateStatus("fallback"));
+  }, []);
+
+  const USD_EUR_RATE = usdEurRate;
 
   // ── EDITORIAL ──
   const realEntries = agenda.filter(e => e.personId !== "__team__");
@@ -2590,8 +3347,10 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
   });
 
   // ── LOGISTICS (EUR) ──
-  const totalHotelEUR   = hotels.reduce((s, h) => s + (h.price || 0), 0);
-  const totalFlightsEUR = flights.reduce((s, f) => s + flightCost(f), 0);
+  const totalHotelEUR     = hotels.reduce((s, h) => s + (h.price || 0), 0);
+  const totalFlightsEUR   = flights.reduce((s, f) => s + flightCost(f), 0);
+  const transport         = logistics.transport || {};
+  const totalTransportEUR = Object.values(transport).reduce((s,t) => s + (t.cost||0), 0);
   let totalPersonNights = 0;
   hotels.forEach(h => {
     const nights  = logNights(h.checkIn, h.checkOut);
@@ -2599,7 +3358,7 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
     totalPersonNights += nights * persons;
   });
   const totalPerDiemEUR   = totalPersonNights * PER_DIEM_DAILY;
-  const totalLogisticsEUR = totalHotelEUR + totalFlightsEUR + totalPerDiemEUR;
+  const totalLogisticsEUR = totalHotelEUR + totalFlightsEUR + totalPerDiemEUR + totalTransportEUR;
 
   // Per-person cost (proportional share of flights + hotels)
   const personCosts = {};
@@ -2664,32 +3423,64 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
   }
 
   const phaseCosts = {};
-  PHASE_DEFS.forEach(ph => { phaseCosts[ph.id] = { flight:0, hotel:0, perDiem:0, pitch:0 }; });
+  PHASE_DEFS.forEach(ph => { phaseCosts[ph.id] = { flight:0, hotel:0, perDiem:0, pitch:0, transport:0, sinFlight:0, sinHotel:0, sinPerDiem:0, sinPitch:0 }; });
+
+  // Identify sinergia persons by name match
+  const SINERGIA_NAMES = ["quaresma","rui pedro","rodrigo alves","rodrigo"];
+  const sinergiaTeam = team.filter(p => SINERGIA_NAMES.some(n => p.name.toLowerCase().includes(n)));
+  const sinergiaIds  = new Set(sinergiaTeam.map(p => p.id));
 
   flights.forEach(f => {
     const phId = getPhaseForDate(f.date);
-    if (phId) phaseCosts[phId].flight += flightCost(f);
+    if (!phId) return;
+    const total = flightCost(f);
+    phaseCosts[phId].flight += total;
+    // Sinergia share for this flight: sum of per-person cost of sinergia people / 2
+    const ppp = f.pricePerPerson > 0 ? (f.pricePerPerson||0) : (f.price||0) / Math.max(1,(f.personIds||[]).length);
+    const sinCount = (f.personIds||[]).filter(id => sinergiaIds.has(id)).length;
+    phaseCosts[phId].sinFlight += (ppp * sinCount) / 2;
   });
 
   hotels.forEach(h => {
     const totalNights = logNights(h.checkIn, h.checkOut) || 1;
+    const persons     = (h.personIds || []).length || 1;
+    const sinPersons  = (h.personIds || []).filter(id => sinergiaIds.has(id)).length;
     PHASE_DEFS.forEach(ph => {
-      const nights  = hotelNightsInPhase(h, ph.id);
+      const nights = hotelNightsInPhase(h, ph.id);
       if (!nights) return;
-      const persons = (h.personIds || []).length || 1;
-      phaseCosts[ph.id].hotel   += (h.price || 0) * (nights / totalNights);
-      phaseCosts[ph.id].perDiem += nights * persons * PER_DIEM_DAILY;
+      const hotelShare  = (h.price || 0) * (nights / totalNights);
+      const perDiemShare = nights * persons * PER_DIEM_DAILY;
+      phaseCosts[ph.id].hotel   += hotelShare;
+      phaseCosts[ph.id].perDiem += perDiemShare;
+      // Sinergia: proportional hotel cost for sinergia persons / 2
+      const perPersonHotel = persons > 0 ? hotelShare / persons : 0;
+      phaseCosts[ph.id].sinHotel   += (perPersonHotel * sinPersons) / 2;
+      phaseCosts[ph.id].sinPerDiem += (nights * sinPersons * PER_DIEM_DAILY) / 2;
     });
   });
+
+  // Transport por fase — registo real diário
+  Object.entries(transport).forEach(([date, t]) => {
+    const phId = getPhaseForDate(date);
+    if (phId) phaseCosts[phId].transport += (t.cost || 0);
+  });
+
+  // IDs das pitch positions que entram na sinergia Portugal-Brasil
+  const SINERGIA_PITCH_IDS = ["touchline_partial","touchline_knockout","centre_circle"];
 
   inLocoEntries.forEach(([matchId, matchData]) => {
     const match = FIFA_MATCHES.find(m => String(m.id) === String(matchId));
     if (!match) return;
     const phId = getPhaseForDate(match.date);
     if (!phId) return;
+    const isPortugal = match.home === "Portugal" || match.away === "Portugal";
     Object.keys(matchData.positions || {}).forEach(posId => {
       const pos = PITCH_POSITIONS_CATALOG.find(p => p.id === posId);
-      if (pos) phaseCosts[phId].pitch += pos.price;
+      if (!pos) return;
+      phaseCosts[phId].pitch += pos.price;
+      if (isPortugal && SINERGIA_PITCH_IDS.includes(posId)) {
+        phaseCosts[phId].sinPitch += pos.price / 2;
+      }
     });
   });
 
@@ -2709,7 +3500,7 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
 
   // ── CUSTOS COMPARTILHADOS ──
   // Pessoas cujos custos são partilhados (÷2) com entidade externa
-  const SHARED_NAMES = ["quaresma","rui pedro","rodrigo"];
+  const SHARED_NAMES = ["quaresma","rui pedro","rodrigo alves","rodrigo"];
   const sharedTeam   = team.filter(p => SHARED_NAMES.some(n => p.name.toLowerCase().includes(n)));
 
   // Custos de logística das pessoas partilhadas (÷2)
@@ -2795,7 +3586,29 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
   }
 
   return (
-    <div className="space-y-7 pb-10">
+    <div className="space-y-5 pb-10">
+
+      {/* Sub-tab toggle */}
+      <div className="flex bg-slate-800 border border-slate-700 rounded-xl p-0.5 gap-0.5">
+        {[
+          {id:"dashboard", emoji:"📊", label:"Dashboard"},
+          {id:"simulador", emoji:"🔮", label:"Simulador Eliminatória"},
+        ].map(t=>(
+          <button key={t.id} onClick={()=>setFinSubTab(t.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${finSubTab===t.id?"bg-emerald-600 text-white":"text-slate-400 hover:text-slate-200"}`}>
+            {t.emoji} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SIMULADOR ── */}
+      {finSubTab==="simulador" && (
+        <Simulador team={team} logistics={logistics} pitchData={pitchData} usdEurRate={usdEurRate} simulador={simulador} setSimulador={setSimulador}
+          phase1Bruto={grandTotalEUR} phase1Sin={sharedTotalEUR}/>
+      )}
+
+      {/* ── DASHBOARD ── */}
+      {finSubTab==="dashboard" && (<>
 
       {/* Header */}
       <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl px-4 py-3">
@@ -2833,6 +3646,12 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
               <span className="text-slate-300 text-sm">🍽️ Per Diem estimado</span>
               <span className="text-green-400 font-bold">{fmtEUR(totalPerDiemEUR)}</span>
             </div>
+            {totalTransportEUR > 0 && (
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-300 text-sm">🚐 Transporte interno</span>
+                <span className="text-orange-400 font-bold">{fmtEUR(totalTransportEUR)}</span>
+              </div>
+            )}
             {totalPitchUSD > 0 && (
               <div className="flex justify-between items-center py-1">
                 <span className="text-slate-300 text-sm">🎙️ Pitch Positions <span className="text-slate-500 text-xs">({fmtUSD(totalPitchUSD)} × {USD_EUR_RATE})</span></span>
@@ -2847,7 +3666,12 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
               <span className="text-white font-bold text-xl">{fmtEUR(grandTotalEUR)}</span>
             </div>
             <div className="text-xs text-slate-600 pt-1">
-              * Per diem €{PER_DIEM_DAILY}/pessoa/dia. Câmbio USD→EUR: {USD_EUR_RATE} (fixo, ajustar se necessário).
+              * Per diem €{PER_DIEM_DAILY}/pessoa/dia. Câmbio USD→EUR: {USD_EUR_RATE}
+              {rateStatus==="live"
+                ? <span className="text-emerald-600 ml-1">✓ taxa ao vivo</span>
+                : rateStatus==="loading"
+                ? <span className="text-slate-600 ml-1">a carregar…</span>
+                : <span className="text-amber-600 ml-1">⚠ taxa de reserva (sem internet)</span>}
             </div>
           </div>
         )}
@@ -2856,66 +3680,144 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
       {/* ── 2. CUSTO POR FASE ── */}
       <section>
         <SectionTitle>📅 Custo por Fase</SectionTitle>
+
+        {/* Legend */}
+        <div className="flex gap-4 text-xs text-slate-500 mb-3 px-1 flex-wrap">
+          <span><span className="text-white font-semibold">Total</span> = custo completo da fase</span>
+          <span><span className="text-emerald-400 font-semibold">Sinergia BR</span> = desconto ÷2 de {sinergiaTeam.map(p=>p.name.split(" ")[0]).join(", ") || "Quaresma, Rui Pedro, Rodrigo"}</span>
+        </div>
+
         <div className="space-y-2">
           {PHASE_DEFS.filter(ph => {
             const c = phaseCosts[ph.id];
-            return c && (c.flight + c.hotel + c.perDiem + c.pitch) > 0;
+            return c && (c.flight + c.hotel + c.perDiem + c.pitch + c.transport) > 0;
           }).map(ph => {
             const c = phaseCosts[ph.id];
-            const eurTotal = c.flight + c.hotel + c.perDiem + c.pitch * USD_EUR_RATE;
+            const eurTotal   = c.flight + c.hotel + c.perDiem + c.pitch * USD_EUR_RATE + c.transport;
+            const sinTotal   = c.sinFlight + c.sinHotel + c.sinPerDiem + c.sinPitch * USD_EUR_RATE;
+            const netTotal   = eurTotal - sinTotal;
             const r = phaseRanges[ph.id];
             return (
               <div key={ph.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-                <div className="flex justify-between items-start mb-2">
+                {/* Phase header */}
+                <div className="flex justify-between items-start mb-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-200">{ph.label}</div>
                     {r && <div className="text-xs text-slate-500 mt-0.5">{r.start} → {r.end}</div>}
                   </div>
-                  <span className="text-white font-bold text-sm shrink-0 ml-3">{fmtEUR(eurTotal)}</span>
+                  <div className="text-right shrink-0 ml-3">
+                    <div className="text-white font-bold text-sm">{fmtEUR(eurTotal)}</div>
+                    {sinTotal > 0 && (
+                      <div className="text-emerald-400 text-xs font-semibold mt-0.5">
+                        -{fmtEUR(sinTotal)} sin.
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-1 border-t border-slate-700/50 pt-2">
+
+                {/* Breakdown rows */}
+                <div className="border-t border-slate-700/50 pt-2 space-y-1.5">
                   {[
-                    {label:"✈️ Aéreo",      value:c.flight,              fmt:fmtEUR, color:"#3b82f6"},
-                    {label:"🏨 Hospedagem", value:c.hotel,               fmt:fmtEUR, color:"#f59e0b"},
-                    {label:"🍽️ Per Diem",   value:c.perDiem,             fmt:fmtEUR, color:"#10b981"},
-                    {label:"🎙️ Pitch Pos.", value:c.pitch*USD_EUR_RATE,  fmt:fmtEUR, color:"#a78bfa", sub: c.pitch>0?fmtUSD(c.pitch):""},
-                  ].filter(x => x.value > 0).map(x => (
-                    <div key={x.label} className="flex justify-between text-xs">
-                      <span className="text-slate-400">{x.label}{x.sub?<span className="text-slate-600 ml-1">({x.sub})</span>:null}</span>
-                      <span style={{color:x.color}} className="font-medium">{x.fmt(x.value)}</span>
+                    { label:"✈️ Aéreo",      total:c.flight,             sin:c.sinFlight,              color:"#3b82f6" },
+                    { label:"🏨 Hospedagem", total:c.hotel,              sin:c.sinHotel,               color:"#f59e0b" },
+                    { label:"🍽️ Per Diem",   total:c.perDiem,            sin:c.sinPerDiem,             color:"#10b981" },
+                    { label:"🚐 Transporte", total:c.transport,          sin:0,                        color:"#f97316" },
+                    { label:"🎙️ Pitch",      total:c.pitch*USD_EUR_RATE, sin:c.sinPitch*USD_EUR_RATE,  color:"#a78bfa",
+                      sub: c.pitch>0 ? `${fmtUSD(c.pitch)}${c.sinPitch>0?" · -"+fmtUSD(c.sinPitch)+" sin.":""}` : "" },
+                  ].filter(x => x.total > 0).map(x => (
+                    <div key={x.label} className="flex items-center justify-between text-xs gap-2">
+                      <span className="text-slate-400 shrink-0">
+                        {x.label}{x.sub ? <span className="text-slate-600 ml-1">({x.sub})</span> : null}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span style={{color:x.color}} className="font-medium">{fmtEUR(x.total)}</span>
+                        {x.sin > 0 && (
+                          <span className="text-emerald-500 text-xs">-{fmtEUR(x.sin)}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Net total with sinergia */}
+                {sinTotal > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-emerald-700/30 flex justify-between items-center">
+                    <span className="text-xs text-emerald-400 font-medium">💚 Total c/ Sinergia Brasil</span>
+                    <span className="text-emerald-300 font-bold text-sm">{fmtEUR(netTotal)}</span>
+                  </div>
+                )}
               </div>
             );
           })}
-          {PHASE_DEFS.every(ph => { const c = phaseCosts[ph.id]; return !c || (c.flight+c.hotel+c.perDiem+c.pitch)===0; }) && (
+          {PHASE_DEFS.every(ph => { const c = phaseCosts[ph.id]; return !c || (c.flight+c.hotel+c.perDiem+c.pitch+c.transport)===0; }) && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
               Sem dados financeiros ainda. Adicione voos, hotéis ou selecione jogos in loco.
             </div>
           )}
         </div>
+
+        {/* Grand totals bar */}
+        {PHASE_DEFS.some(ph => { const c = phaseCosts[ph.id]; return c && (c.flight+c.hotel+c.perDiem+c.pitch+c.transport)>0; }) && (
+          <div className="mt-3 bg-slate-800 border border-slate-700 rounded-2xl p-4">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-slate-400 font-medium">Total geral de todas as fases</span>
+            </div>
+            {(() => {
+              const allSin = PHASE_DEFS.reduce((s,ph) => {
+                const c = phaseCosts[ph.id];
+                return s + (c ? c.sinFlight + c.sinHotel + c.sinPerDiem + c.sinPitch * USD_EUR_RATE : 0);
+              }, 0);
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-300">Custo total</span>
+                    <span className="text-white font-bold">{fmtEUR(grandTotalEUR)}</span>
+                  </div>
+                  {allSin > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-emerald-400">Desconto Sinergia Brasil</span>
+                        <span className="text-emerald-400 font-bold">-{fmtEUR(allSin)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm border-t border-slate-600 pt-1.5 mt-0.5">
+                        <span className="text-slate-200 font-semibold">💚 Custo líquido c/ Sinergia</span>
+                        <span className="text-emerald-300 font-bold">{fmtEUR(grandTotalEUR - allSin)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </section>
 
       {/* ── 3. LOGÍSTICA (EUR) ── */}
       <section>
         <SectionTitle total={fmtEUR(totalLogisticsEUR)}>🗺️ Logística (EUR)</SectionTitle>
         <div className="grid grid-cols-3 gap-3 mb-3">
-          <KpiCard emoji="✈️" label="Viagens"  value={fmtEUR(totalFlightsEUR)} color="#3b82f6"
+          <KpiCard emoji="✈️" label="Viagens"    value={fmtEUR(totalFlightsEUR)}   color="#3b82f6"
             sub={`${flights.length} voo${flights.length!==1?"s":""}`}/>
-          <KpiCard emoji="🏨" label="Hotéis"   value={fmtEUR(totalHotelEUR)}   color="#f59e0b"
+          <KpiCard emoji="🏨" label="Hotéis"     value={fmtEUR(totalHotelEUR)}     color="#f59e0b"
             sub={`${hotels.length} reserva${hotels.length!==1?"s":""}`}/>
-          <KpiCard emoji="🍽️" label="Per Diem" value={fmtEUR(totalPerDiemEUR)} color="#10b981"
+          <KpiCard emoji="🍽️" label="Per Diem"  value={fmtEUR(totalPerDiemEUR)}   color="#10b981"
             sub={`${totalPersonNights} p·noite · €${PER_DIEM_DAILY}/dia`}/>
         </div>
+        {totalTransportEUR > 0 && (
+          <div className="grid grid-cols-1 gap-3 mb-3">
+            <KpiCard emoji="🚐" label="Transporte Interno (real)" value={fmtEUR(totalTransportEUR)} color="#f97316"
+              sub={`${Object.values(transport).filter(t=>t.cost>0).length} dias · média €${Math.round(totalTransportEUR/Math.max(1,Object.values(transport).filter(t=>t.cost>0).length))}/dia`}/>
+          </div>
+        )}
         {totalLogisticsEUR > 0 && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
             <div className="text-xs text-slate-400 mb-3 font-medium">Composição do orçamento logístico</div>
             <div className="space-y-2.5">
               {[
-                {label:"✈️ Viagens",  cost:totalFlightsEUR, color:"#3b82f6"},
-                {label:"🏨 Hotéis",   cost:totalHotelEUR,   color:"#f59e0b"},
-                {label:"🍽️ Per Diem", cost:totalPerDiemEUR, color:"#10b981"},
+                {label:"✈️ Viagens",       cost:totalFlightsEUR,   color:"#3b82f6"},
+                {label:"🏨 Hotéis",        cost:totalHotelEUR,     color:"#f59e0b"},
+                {label:"🍽️ Per Diem",      cost:totalPerDiemEUR,   color:"#10b981"},
+                {label:"🚐 Transporte",    cost:totalTransportEUR, color:"#f97316"},
               ].filter(x => x.cost > 0).map(x => (
                 <div key={x.label}>
                   <div className="flex justify-between text-xs mb-1">
@@ -3135,7 +4037,7 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
 
       {/* ── 6. EDITORIAL ── */}
       <section>
-        <SectionTitle>📋 Editorial</SectionTitle>
+        <SectionTitle>📋 Editorial — Produção</SectionTitle>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <KpiCard emoji="⚽" label="Jogos cobertos in loco"     value={gamesInLoco}  color="#10b981"/>
           <KpiCard emoji="📡" label="Entradas em Direto"         value={nDireto}      color="#ec4899"/>
@@ -3153,20 +4055,811 @@ function FinanceDashboard({ team, agenda, pitchData, logistics }) {
         )}
       </section>
 
+      {/* ── 7. ROI & EFICIÊNCIA ── */}
+      {(() => {
+        // Dias de operação = dias com pelo menos 1 compromisso real
+        const opDays = new Set(
+          realEntries.map(e => e.date)
+        ).size;
+
+        // Custo líquido (já descontado sinergia)
+        const allSinLiq = PHASE_DEFS.reduce((s,ph) => {
+          const c = phaseCosts[ph.id];
+          return s + (c ? c.sinFlight + c.sinHotel + c.sinPerDiem + c.sinPitch * USD_EUR_RATE : 0);
+        }, 0);
+        const netCost = grandTotalEUR - allSinLiq;
+
+        // Custo por entrega (usa custo líquido)
+        function cpe(n) { return n > 0 ? fmtEUR(Math.round(netCost / n)) : "—"; }
+        function cpeBruto(n) { return n > 0 ? fmtEUR(Math.round(grandTotalEUR / n)) : "—"; }
+
+        // Dias em campo (com pelo menos 1 pessoa em hotel)
+        const hotelDays = new Set(
+          (logistics.hotels || []).flatMap(h => {
+            const days = [];
+            const s = new Date(h.checkIn + "T12:00:00Z");
+            const e = new Date(h.checkOut + "T12:00:00Z");
+            for (let d = new Date(s); d < e; d.setUTCDate(d.getUTCDate()+1))
+              days.push(d.toISOString().slice(0,10));
+            return days;
+          })
+        ).size;
+
+        // Ratio diretos / jogo coberto
+        const directsPerGame = gamesInLoco > 0 ? (nDireto / gamesInLoco).toFixed(1) : "—";
+        const contentPerDay  = opDays > 0 ? (totalContent / opDays).toFixed(1) : "—";
+        const costPerDay     = hotelDays > 0 ? fmtEUR(Math.round(netCost / hotelDays)) : "—";
+        const costPerPerson  = team.length > 0 ? fmtEUR(Math.round(netCost / team.length)) : "—";
+
+        const hasData = grandTotalEUR > 0 && (totalContent > 0 || gamesInLoco > 0);
+
+        if (!hasData) return (
+          <section>
+            <SectionTitle>📈 ROI & Eficiência</SectionTitle>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-500 text-sm text-center">
+              Preenche custos e pauta para ver as métricas de eficiência.
+            </div>
+          </section>
+        );
+
+        return (
+          <section>
+            <SectionTitle>📈 ROI & Eficiência da Cobertura</SectionTitle>
+
+            {/* Contexto */}
+            <div className="flex gap-3 flex-wrap text-xs text-slate-500 mb-3 px-1">
+              <span>Base: <span className="text-slate-300 font-medium">{fmtEUR(netCost)}</span> custo líquido</span>
+              {allSinLiq > 0 && <span className="text-emerald-500">(-{fmtEUR(allSinLiq)} sinergia)</span>}
+              <span>· <span className="text-slate-300">{opDays}</span> dias de operação</span>
+              <span>· <span className="text-slate-300">{team.length}</span> pessoas</span>
+            </div>
+
+            {/* Custo por entrega */}
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-3">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                💸 Custo por Entrega
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { emoji:"⚽", label:"Jogo coberto in loco",   n:gamesInLoco, color:"#10b981" },
+                  { emoji:"📡", label:"Entrada em Direto",       n:nDireto,     color:"#ec4899" },
+                  { emoji:"🎬", label:"Gravação de Conteúdo",    n:nGravacao,   color:"#f97316" },
+                  { emoji:"📲", label:"Post de Redes Sociais",   n:nRedes,      color:"#a855f7" },
+                  { emoji:"🤝", label:"Ação Comercial",          n:nComercial,  color:"#06b6d4" },
+                  { emoji:"📦", label:"Qualquer conteúdo",       n:totalContent,color:"#f59e0b" },
+                ].filter(x => x.n > 0).map(x => {
+                  const unit    = Math.round(netCost / x.n);
+                  const unitRaw = Math.round(grandTotalEUR / x.n);
+                  const minUnit = Math.min(...[gamesInLoco,nDireto,nGravacao,nRedes,nComercial,totalContent].filter(v=>v>0).map(n=>Math.round(netCost/n)));
+                  const pct     = Math.min(100, minUnit > 0 ? Math.round((unit / minUnit) * 100) : 100);
+                  return (
+                    <div key={x.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-slate-300 flex items-center gap-1.5">
+                          <span>{x.emoji}</span>{x.label}
+                          <span className="text-slate-600">({x.n}×)</span>
+                        </span>
+                        <div className="text-right">
+                          <span className="text-sm font-bold" style={{color:x.color}}>{fmtEUR(unit)}</span>
+                          {allSinLiq > 0 && (
+                            <span className="text-xs text-slate-600 ml-2">bruto {fmtEUR(unitRaw)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{width:`${pct}%`, background:x.color}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Indicadores de ritmo */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                <div className="text-xs text-slate-400 mb-1">📅 Custo por dia em campo</div>
+                <div className="text-xl font-bold text-blue-400">{costPerDay}</div>
+                <div className="text-xs text-slate-500 mt-1">{hotelDays} noites de operação</div>
+              </div>
+              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+                <div className="text-xs text-slate-400 mb-1">👤 Custo por pessoa</div>
+                <div className="text-xl font-bold text-violet-400">{costPerPerson}</div>
+                <div className="text-xs text-slate-500 mt-1">{team.length} membros · total líquido</div>
+              </div>
+            </div>
+
+            {/* Ratios de aproveitamento */}
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                ⚡ Aproveitamento da Cobertura
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    label: "Diretos por jogo coberto",
+                    value: directsPerGame,
+                    desc: `${nDireto} diretos ÷ ${gamesInLoco} jogos in loco`,
+                    color: "#ec4899",
+                    show: gamesInLoco > 0,
+                    benchmark: "Bom acima de 2,0"
+                  },
+                  {
+                    label: "Conteúdos por dia de operação",
+                    value: contentPerDay,
+                    desc: `${totalContent} conteúdos ÷ ${opDays} dias`,
+                    color: "#f59e0b",
+                    show: opDays > 0 && totalContent > 0,
+                    benchmark: "Bom acima de 3,0"
+                  },
+                  {
+                    label: "Jogos cobertos vs. total assistido",
+                    value: gamesInLoco > 0 ? `${gamesInLoco} / ${FIFA_MATCHES.length}` : "—",
+                    desc: `${gamesInLoco > 0 ? Math.round((gamesInLoco/FIFA_MATCHES.length)*100) : 0}% dos 104 jogos`,
+                    color: "#10b981",
+                    show: gamesInLoco > 0,
+                    benchmark: null
+                  },
+                ].filter(x => x.show).map(x => (
+                  <div key={x.label} className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-slate-200">{x.label}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{x.desc}</div>
+                      {x.benchmark && <div className="text-xs text-slate-600 mt-0.5 italic">{x.benchmark}</div>}
+                    </div>
+                    <span className="text-lg font-bold shrink-0" style={{color:x.color}}>{x.value}</span>
+                  </div>
+                ))}
+
+                {/* Eficiência financeira: custo bruto vs. líquido */}
+                {allSinLiq > 0 && (
+                  <div className="border-t border-slate-700/50 pt-3">
+                    <div className="text-xs font-medium text-slate-200 mb-1">💚 Impacto da Sinergia Brasil</div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-slate-400">Custo bruto</span>
+                          <span className="text-slate-300">{fmtEUR(grandTotalEUR)}</span>
+                        </div>
+                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-slate-500" style={{width:"100%"}}/>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-emerald-400">Custo líquido c/ sinergia</span>
+                          <span className="text-emerald-300 font-bold">{fmtEUR(netCost)}</span>
+                        </div>
+                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{width:`${Math.round((netCost/grandTotalEUR)*100)}%`}}/>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-emerald-600 mt-1.5 text-right">
+                      A sinergia reduz {Math.round((allSinLiq/grandTotalEUR)*100)}% do custo total
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
+      </>)} {/* end dashboard */}
+    </div>
+  );
+}
+
+// ── SIMULADOR DE FASE ELIMINATÓRIA ───────────────────────────────────────────
+const KNOCKOUT_STAGES = [
+  {id:"r16", label:"Rodada de 32",       short:"32A", stage:"16th Finals",    color:"#8b5cf6", dates:{from:"2026-06-28",to:"2026-07-04"}},
+  {id:"r8",  label:"Oitavas de Final",   short:"8A",  stage:"8th Finals",     color:"#f59e0b", dates:{from:"2026-07-04",to:"2026-07-07"}},
+  {id:"qf",  label:"Quartas de Final",   short:"QF",  stage:"Quarter-finals", color:"#ef4444", dates:{from:"2026-07-09",to:"2026-07-11"}},
+  {id:"sf",  label:"Semifinais",         short:"SF",  stage:"Semi-finals",    color:"#ec4899", dates:{from:"2026-07-14",to:"2026-07-15"}},
+  {id:"f",   label:"Final",              short:"F",   stage:"Final",          color:"#22c55e", dates:{from:"2026-07-18",to:"2026-07-19"}},
+];
+
+// IDs que entram na sinergia Portugal-Brasil (÷2)
+const SIM_SINERGIA_NAMES  = ["quaresma","rui pedro","rodrigo alves","rodrigo"];
+const SIM_SINERGIA_PITCH  = ["touchline_partial","touchline_knockout","centre_circle"];
+
+const BLANK_SIM = () => ({
+  id: Date.now().toString(36),
+  name: "Novo Cenário",
+  stages: Object.fromEntries(KNOCKOUT_STAGES.map(s => [s.id, {
+    active:       false,
+    games:        1,
+    persons:      3,
+    flightCostPP: 400,  // € por pessoa (ida+volta)
+    hotelNights:  3,
+    hotelCostPN:  150,  // € por noite (total quarto, não por pessoa)
+    pitchIds:     [],
+  }])),
+});
+
+function Simulador({ team, logistics, pitchData, usdEurRate, simulador, setSimulador, phase1Bruto=0, phase1Sin=0 }) {
+  const USD_EUR_RATE = usdEurRate || 0.92;
+  const fmtEUR = n => "€" + Math.round(n).toLocaleString("pt-PT");
+
+  // Use external state if available, otherwise local fallback
+  const hasExternal = !!setSimulador;
+  const [localScenarios, setLocalScenarios] = useState([BLANK_SIM()]);
+  const scenarios    = hasExternal && simulador?.length > 0 ? simulador : localScenarios;
+  const setScenarios = hasExternal
+    ? (updater) => {
+        const next = typeof updater === "function" ? updater(scenarios) : updater;
+        setSimulador(next);
+        setLocalScenarios(next); // keep local in sync
+      }
+    : setLocalScenarios;
+
+  const [saveIndicator, setSaveIndicator] = useState(null); // "saving" | "saved" | null
+  const [activeScen,    setActiveScen]    = useState(0);
+  const [expandedStage, setExpandedStage] = useState(null);
+
+  // Show save indicator when simulador changes
+  const prevSimStr = useRef(null);
+  useEffect(() => {
+    if (!hasExternal) return;
+    const str = JSON.stringify(simulador);
+    if (prevSimStr.current !== null && prevSimStr.current !== str) {
+      setSaveIndicator("saved");
+      const t = setTimeout(() => setSaveIndicator(null), 2000);
+      return () => clearTimeout(t);
+    }
+    prevSimStr.current = str;
+  }, [simulador]);
+
+  const scen = scenarios[Math.min(activeScen, scenarios.length-1)] || scenarios[0];
+
+  function updateScen(patch)          { setScenarios(prev => prev.map((s,i) => i===activeScen ? {...s,...patch} : s)); }
+  function updateStage(sid, patch)    { updateScen({stages:{...scen.stages,[sid]:{...scen.stages[sid],...patch}}}); }
+  function addScenario()              { const ns=BLANK_SIM(); ns.name=`Cenário ${scenarios.length+1}`; setScenarios(p=>[...p,ns]); setActiveScen(scenarios.length); }
+  function deleteScenario(i)          { if(scenarios.length===1)return; setScenarios(p=>p.filter((_,idx)=>idx!==i)); setActiveScen(Math.max(0,activeScen-(i<=activeScen?1:0))); }
+  function duplicateScenario()        { const d=JSON.parse(JSON.stringify(scen)); d.id=Date.now().toString(36); d.name=scen.name+" (cópia)"; setScenarios(p=>[...p,d]); setActiveScen(scenarios.length); }
+
+  // Número de pessoas de sinergia na equipa
+  const sinergiaTeam  = team.filter(p => SIM_SINERGIA_NAMES.some(n => p.name.toLowerCase().includes(n)));
+  const sinergiaCount = sinergiaTeam.length;
+
+  // ── Calcula custos de uma fase ──────────────────────────────────────────────
+  function stageCalc(st) {
+    const cfg = scen.stages[st.id];
+    if (!cfg?.active) return {flight:0,hotel:0,perDiem:0,pitch:0,sinFlight:0,sinHotel:0,sinPerDiem:0,sinPitch:0,total:0,sin:0,net:0};
+
+    const n    = cfg.persons;
+    const sinN = Math.min(sinergiaCount, n);
+    const g    = cfg.games;
+
+    // Custos brutos
+    const flight  = cfg.flightCostPP * n;
+    const hotel   = cfg.hotelCostPN  * cfg.hotelNights * g;
+    const perDiem = n * cfg.hotelNights * g * PER_DIEM_DAILY;
+
+    // Pitch: custo total = (soma das posições) × jogos × câmbio
+    const pitchUSD = cfg.pitchIds.reduce((s,id) => {
+      const pos = PITCH_POSITIONS_CATALOG.find(p=>p.id===id);
+      return s + (pos?.price||0);
+    }, 0) * g;
+    const pitch = pitchUSD * USD_EUR_RATE;
+
+    // Sinergia — voo: custo por pessoa × nº pessoas sinergia ÷2
+    const sinFlight  = sinN > 0 ? (cfg.flightCostPP * sinN) / 2 : 0;
+
+    // Sinergia — hotel: proporcional às pessoas de sinergia ÷2
+    const sinHotel   = sinN > 0 && n > 0
+      ? (cfg.hotelCostPN * cfg.hotelNights * g * sinN / n) / 2
+      : 0;
+
+    // Sinergia — per diem: pessoas sinergia × noites ÷2
+    const sinPerDiem = sinN > 0 ? (sinN * cfg.hotelNights * g * PER_DIEM_DAILY) / 2 : 0;
+
+    // Sinergia — pitch: Presentation Position + Centre Circle ÷2
+    // (independente de Portugal, é a regra da sinergia no simulador)
+    const sinPitchUSD = cfg.pitchIds
+      .filter(id => SIM_SINERGIA_PITCH.includes(id))
+      .reduce((s,id) => { const pos=PITCH_POSITIONS_CATALOG.find(p=>p.id===id); return s+(pos?.price||0); }, 0) * g;
+    const sinPitch = sinPitchUSD * USD_EUR_RATE / 2;
+
+    const total = flight + hotel + perDiem + pitch;
+    const sin   = sinFlight + sinHotel + sinPerDiem + sinPitch;
+    const net   = total - sin;
+
+    return {flight, hotel, perDiem, pitch, pitchUSD, sinFlight, sinHotel, sinPerDiem, sinPitch, sinPitchUSD, total, sin, net};
+  }
+
+  const allCalcs   = Object.fromEntries(KNOCKOUT_STAGES.map(st => [st.id, stageCalc(st)]));
+  const grandTotal = KNOCKOUT_STAGES.reduce((s,st) => s + allCalcs[st.id].total, 0);
+  const totalSin   = KNOCKOUT_STAGES.reduce((s,st) => s + allCalcs[st.id].sin,   0);
+  const netTotal   = grandTotal - totalSin;
+
+  // Pitch positions com preço (para selector)
+  const pitchByCategory = {};
+  PITCH_POSITIONS_CATALOG.filter(p=>p.price>0).forEach(p=>{
+    if(!pitchByCategory[p.cat]) pitchByCategory[p.cat]=[];
+    pitchByCategory[p.cat].push(p);
+  });
+
+  // Preencher com médias reais da logística
+  function seedFromReal() {
+    const realFlights = logistics?.flights||[];
+    const realHotels  = logistics?.hotels||[];
+    const avgFPP = realFlights.length
+      ? realFlights.reduce((s,f)=>{
+          const ppp=f.pricePerPerson>0?f.pricePerPerson:(f.price||0)/Math.max(1,(f.personIds||[]).length);
+          return s+ppp;
+        },0)/realFlights.length
+      : 400;
+    const avgHPN = realHotels.length
+      ? realHotels.reduce((s,h)=>s+(h.price||0)/Math.max(1,logNights(h.checkIn,h.checkOut)||1),0)/realHotels.length
+      : 150;
+    const newStages = {};
+    KNOCKOUT_STAGES.forEach(st=>{
+      newStages[st.id]={...scen.stages[st.id], flightCostPP:Math.round(avgFPP), hotelCostPN:Math.round(avgHPN)};
+    });
+    updateScen({stages:newStages});
+  }
+
+  return (
+    <div className="space-y-4 pb-6">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/20 rounded-2xl px-4 py-3">
+        <span className="text-2xl">🔮</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-violet-300 text-base">Simulador — Fase Eliminatória</div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-violet-400/70">Estimativas isoladas · Não afeta dados reais</span>
+            {saveIndicator==="saved" && (
+              <span className="text-xs text-emerald-400 font-medium animate-pulse">✓ Guardado</span>
+            )}
+            {!hasExternal && (
+              <span className="text-xs text-amber-500/70">⚠ Sem Firebase — só local</span>
+            )}
+          </div>
+        </div>
+        <button onClick={seedFromReal}
+          className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl transition-colors shrink-0">
+          📥 Usar médias reais
+        </button>
+      </div>
+
+      {/* Scenario selector */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {scenarios.map((s,i)=>(
+          <button key={s.id} onClick={()=>setActiveScen(i)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
+              i===activeScen?"bg-violet-600 border-violet-500 text-white":"bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"}`}>
+            {s.name}
+            {scenarios.length>1&&(
+              <span onClick={e=>{e.stopPropagation();deleteScenario(i);}}
+                className="text-slate-500 hover:text-red-400 ml-1 transition-colors">✕</span>
+            )}
+          </button>
+        ))}
+        <button onClick={addScenario}
+          className="px-3 py-1.5 rounded-xl border border-dashed border-slate-600 text-slate-500 hover:text-slate-300 text-xs whitespace-nowrap shrink-0 transition-colors">
+          + Cenário
+        </button>
+      </div>
+
+      {/* Scenario name + duplicate */}
+      <div className="flex gap-2">
+        <input value={scen.name} onChange={e=>updateScen({name:e.target.value})}
+          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-200 outline-none focus:border-violet-500"/>
+        <button onClick={duplicateScenario}
+          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-xs transition-colors shrink-0">
+          📋 Duplicar
+        </button>
+      </div>
+
+      {/* Sinergia notice */}
+      {sinergiaCount > 0 && (
+        <div className="px-3 py-2 bg-emerald-950/30 border border-emerald-700/30 rounded-xl text-xs text-emerald-400/80 space-y-0.5">
+          <div className="font-semibold text-emerald-400">💚 Sinergia Brasil automática para {sinergiaCount} pessoa{sinergiaCount!==1?"s":""}: {sinergiaTeam.map(p=>p.name.split(" ")[0]).join(", ")}</div>
+          <div className="text-emerald-600">✈️ Aéreo · 🏨 Hotel · 🍽️ Per diem · 🎙️ Presentation Position + Centre Circle — todos ÷2</div>
+        </div>
+      )}
+
+      {/* Stage cards */}
+      <div className="space-y-2">
+        {KNOCKOUT_STAGES.map(st=>{
+          const cfg  = scen.stages[st.id];
+          const calc = allCalcs[st.id];
+          const isExp = expandedStage===st.id;
+          const stageMatches = FIFA_MATCHES.filter(m=>m.stage===st.stage);
+
+          return (
+            <div key={st.id} className={`rounded-2xl border overflow-hidden transition-all ${cfg.active?"border-slate-600":"border-slate-700/40 opacity-60"}`}
+              style={cfg.active?{borderColor:st.color+"55"}:{}}>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 px-4 py-3" style={{background:cfg.active?st.color+"11":"transparent"}}>
+                <button onClick={()=>updateStage(st.id,{active:!cfg.active})}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors`}
+                  style={{background:cfg.active?st.color:"#334155"}}>
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform ${cfg.active?"translate-x-4":"translate-x-0.5"}`}/>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-200">{st.label}</span>
+                    <span className="text-xs text-slate-500">{st.dates.from} → {st.dates.to}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{background:st.color+"22",color:st.color}}>
+                      {stageMatches.length} jogos
+                    </span>
+                  </div>
+                </div>
+                {cfg.active && calc.total>0 && (
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-white">{fmtEUR(calc.total)}</div>
+                    {calc.sin>0 && <div className="text-xs text-emerald-400">-{fmtEUR(calc.sin)} sin.</div>}
+                    {calc.sin>0 && <div className="text-xs text-emerald-300 font-semibold">{fmtEUR(calc.net)}</div>}
+                  </div>
+                )}
+                {cfg.active && (
+                  <button onClick={()=>setExpandedStage(isExp?null:st.id)}
+                    className="text-slate-400 hover:text-slate-200 text-sm transition-colors shrink-0 w-5 text-center">
+                    {isExp?"▲":"▼"}
+                  </button>
+                )}
+              </div>
+
+              {/* Detail */}
+              {cfg.active && isExp && (
+                <div className="px-4 pb-4 pt-2 border-t space-y-4" style={{borderColor:st.color+"33"}}>
+
+                  {/* Games + persons */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">⚽ Jogos a cobrir</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min="1" max={stageMatches.length} value={cfg.games}
+                          onChange={e=>updateStage(st.id,{games:Math.max(1,parseInt(e.target.value)||1)})}
+                          className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none text-center"/>
+                        <span className="text-xs text-slate-500">de {stageMatches.length}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">👥 Pessoas em campo</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min="1" max={Math.max(1,team.length)} value={cfg.persons}
+                          onChange={e=>updateStage(st.id,{persons:Math.max(1,parseInt(e.target.value)||1)})}
+                          className="w-20 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none text-center"/>
+                        <span className="text-xs text-slate-500">de {team.length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ✈️ Aéreo */}
+                  <div className="bg-blue-950/20 border border-blue-800/30 rounded-xl p-3 space-y-2">
+                    <div className="text-xs font-semibold text-blue-400 uppercase tracking-wider">✈️ Aéreo</div>
+                    <div className="flex items-end gap-3 flex-wrap">
+                      <div className="flex-1 min-w-[130px]">
+                        <label className="text-xs text-slate-400 mb-1 block">Custo por pessoa (ida+volta)</label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-500">€</span>
+                          <input type="number" min="0" step="50" value={cfg.flightCostPP}
+                            onChange={e=>updateStage(st.id,{flightCostPP:parseInt(e.target.value)||0})}
+                            className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 pb-0.5">
+                        <div className="text-xs text-slate-500">{cfg.persons} pax × €{cfg.flightCostPP}</div>
+                        <div className="text-sm font-bold text-blue-400">{fmtEUR(calc.flight)}</div>
+                        {calc.sinFlight>0 && <div className="text-xs text-emerald-400">-{fmtEUR(calc.sinFlight)} sin.</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🏨 Hospedagem + per diem */}
+                  <div className="bg-amber-950/20 border border-amber-800/30 rounded-xl p-3 space-y-3">
+                    <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🏨 Hospedagem</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">€/noite (quarto)</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-slate-500">€</span>
+                          <input type="number" min="0" step="25" value={cfg.hotelCostPN}
+                            onChange={e=>updateStage(st.id,{hotelCostPN:parseInt(e.target.value)||0})}
+                            className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none"/>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Noites por jogo</label>
+                        <input type="number" min="1" max="7" value={cfg.hotelNights}
+                          onChange={e=>updateStage(st.id,{hotelNights:Math.max(1,parseInt(e.target.value)||1)})}
+                          className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-xl text-sm text-slate-200 outline-none text-center"/>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-xs border-t border-amber-800/20 pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Hospedagem ({cfg.games}j × {cfg.hotelNights}n × €{cfg.hotelCostPN})</span>
+                        <div className="text-right">
+                          <span className="font-bold text-amber-400">{fmtEUR(calc.hotel)}</span>
+                          {calc.sinHotel>0 && <div className="text-emerald-400">-{fmtEUR(calc.sinHotel)} sin.</div>}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">🍽️ Per diem ({cfg.persons}p × {cfg.games * cfg.hotelNights}n × €{PER_DIEM_DAILY})</span>
+                        <div className="text-right">
+                          <span className="font-bold text-emerald-400">{fmtEUR(calc.perDiem)}</span>
+                          {calc.sinPerDiem>0 && <div className="text-emerald-500">-{fmtEUR(calc.sinPerDiem)} sin.</div>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🎙️ Pitch positions */}
+                  <div className="bg-violet-950/20 border border-violet-800/30 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-violet-400 uppercase tracking-wider">🎙️ Pitch Positions <span className="text-violet-600 normal-case">(por jogo)</span></div>
+                      {calc.sinPitch>0 && <div className="text-xs text-emerald-400">-{fmtEUR(calc.sinPitch)} sin.</div>}
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(pitchByCategory).map(([cat, positions])=>{
+                        const catMeta = PITCH_CAT_META[cat]||{label:cat,color:"#94a3b8"};
+                        return (
+                          <div key={cat}>
+                            <div className="text-xs font-medium mb-1" style={{color:catMeta.color}}>{catMeta.label}</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {positions.map(pos=>{
+                                const sel  = cfg.pitchIds.includes(pos.id);
+                                const isSin = SIM_SINERGIA_PITCH.includes(pos.id);
+                                return (
+                                  <button key={pos.id} type="button"
+                                    onClick={()=>updateStage(st.id,{pitchIds:sel
+                                      ?cfg.pitchIds.filter(id=>id!==pos.id)
+                                      :[...cfg.pitchIds,pos.id]})}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all"
+                                    style={sel
+                                      ?{background:catMeta.color+"33",borderColor:catMeta.color+"66",color:catMeta.color}
+                                      :{background:"transparent",borderColor:"#475569",color:"#94a3b8"}}>
+                                    {pos.emoji} {pos.label.split("–")[0].trim()}
+                                    {pos.price>0 && <span className="opacity-50">${pos.price}</span>}
+                                    {isSin && <span className={sel?"text-emerald-400 font-bold opacity-80":"opacity-40"} title="Entra na sinergia ÷2">÷2</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {calc.pitch>0 && (
+                      <div className="flex justify-between text-xs pt-1 border-t border-violet-800/20">
+                        <span className="text-slate-500">{cfg.pitchIds.length} pos. × {cfg.games} jogo{cfg.games!==1?"s":""} · ${calc.pitchUSD} USD</span>
+                        <div className="text-right">
+                          <span className="font-bold text-violet-400">{fmtEUR(calc.pitch)}</span>
+                          {calc.sinPitch>0 && (
+                            <div className="text-emerald-400 text-xs">-{fmtEUR(calc.sinPitch)} sin. <span className="text-emerald-600">(Pres.Pos+Centre Circle÷2)</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stage total */}
+                  <div className="flex justify-between items-center border-t border-slate-700/40 pt-3">
+                    <span className="text-xs text-slate-400 font-medium">Total desta fase</span>
+                    <div className="text-right">
+                      <div className="text-base font-bold text-white">{fmtEUR(calc.total)}</div>
+                      {calc.sin>0 && <>
+                        <div className="text-xs text-emerald-400">-{fmtEUR(calc.sin)} sinergia</div>
+                        <div className="text-sm font-bold text-emerald-300">→ {fmtEUR(calc.net)} líquido</div>
+                      </>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Grand total */}
+      {grandTotal > 0 && (
+        <div className="rounded-2xl border border-violet-500/30 bg-violet-950/20 p-4 space-y-3">
+          <div className="text-xs font-semibold text-violet-400 uppercase tracking-wider">📊 Total — {scen.name}</div>
+
+          {/* Per stage */}
+          <div className="space-y-1.5">
+            {KNOCKOUT_STAGES.filter(st=>allCalcs[st.id].total>0).map(st=>{
+              const c=allCalcs[st.id];
+              return (
+                <div key={st.id} className="grid text-xs" style={{gridTemplateColumns:"1rem 1fr auto auto auto"}}>
+                  <span className="w-2 h-2 rounded-full mt-1 shrink-0" style={{background:st.color}}/>
+                  <span className="text-slate-300 pl-1">{st.label}</span>
+                  <span className="text-slate-400 px-2">{fmtEUR(c.total)}</span>
+                  {c.sin>0 && <span className="text-emerald-400 px-1">-{fmtEUR(c.sin)}</span>}
+                  <span className="text-emerald-300 font-bold text-right">{fmtEUR(c.net)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Category totals */}
+          <div className="border-t border-violet-700/30 pt-3 grid grid-cols-2 gap-x-4 gap-y-1">
+            {[
+              {l:"✈️ Aéreo",      v:KNOCKOUT_STAGES.reduce((s,st)=>s+allCalcs[st.id].flight,  0), c:"#3b82f6"},
+              {l:"🏨 Hospedagem", v:KNOCKOUT_STAGES.reduce((s,st)=>s+allCalcs[st.id].hotel,   0), c:"#f59e0b"},
+              {l:"🍽️ Per diem",   v:KNOCKOUT_STAGES.reduce((s,st)=>s+allCalcs[st.id].perDiem, 0), c:"#10b981"},
+              {l:"🎙️ Pitch",      v:KNOCKOUT_STAGES.reduce((s,st)=>s+allCalcs[st.id].pitch,   0), c:"#a78bfa"},
+            ].filter(x=>x.v>0).map(x=>(
+              <div key={x.l} className="flex justify-between text-xs">
+                <span className="text-slate-400">{x.l}</span>
+                <span style={{color:x.c}} className="font-medium">{fmtEUR(x.v)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom line */}
+          <div className="border-t border-violet-700/40 pt-3 space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-300">Custo bruto total</span>
+              <span className="text-white font-bold text-lg">{fmtEUR(grandTotal)}</span>
+            </div>
+            {totalSin>0 && <>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-emerald-400">💚 Sinergia Brasil</span>
+                <span className="text-emerald-400 font-semibold">-{fmtEUR(totalSin)}</span>
+              </div>
+              <div className="flex justify-between items-center text-base border-t border-violet-700/30 pt-2">
+                <span className="text-emerald-300 font-bold">Custo líquido estimado</span>
+                <span className="text-emerald-300 font-bold text-xl">{fmtEUR(netTotal)}</span>
+              </div>
+            </>}
+          </div>
+
+          {/* Multi-scenario compare */}
+          {scenarios.length>1 && (
+            <div className="border-t border-violet-700/30 pt-3">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📐 Comparar cenários</div>
+              <div className="space-y-1">
+                {scenarios.map((s,i)=>{
+                  const tot=KNOCKOUT_STAGES.reduce((sum,st)=>{
+                    const cfg=s.stages[st.id]; if(!cfg?.active) return sum;
+                    const n=cfg.persons, sinN=Math.min(sinergiaCount,n), g=cfg.games;
+                    const fl=cfg.flightCostPP*n, ho=cfg.hotelCostPN*cfg.hotelNights*g, pd=n*cfg.hotelNights*g*PER_DIEM_DAILY;
+                    const pi=(cfg.pitchIds||[]).reduce((ps,id)=>{const pos=PITCH_POSITIONS_CATALOG.find(p=>p.id===id);return ps+(pos?.price||0);},0)*g*USD_EUR_RATE;
+                    const sinFl=sinN>0?(cfg.flightCostPP*sinN)/2:0;
+                    const sinHo=sinN>0&&n>0?(cfg.hotelCostPN*cfg.hotelNights*g*sinN/n)/2:0;
+                    const sinPd=sinN>0?(sinN*cfg.hotelNights*g*PER_DIEM_DAILY)/2:0;
+                    const sinPi=(cfg.pitchIds||[]).filter(id=>SIM_SINERGIA_PITCH.includes(id)).reduce((ps,id)=>{const pos=PITCH_POSITIONS_CATALOG.find(p=>p.id===id);return ps+(pos?.price||0);},0)*g*USD_EUR_RATE/2;
+                    return sum+fl+ho+pd+pi-sinFl-sinHo-sinPd-sinPi;
+                  },0);
+                  return (
+                    <div key={s.id} className={`flex justify-between text-xs px-2 py-1.5 rounded-lg ${i===activeScen?"bg-violet-800/30 text-violet-200":"text-slate-400"}`}>
+                      <span>{s.name}</span>
+                      <span className="font-semibold">{fmtEUR(tot)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TOTAL MUNDIAL COMPLETO ── */}
+      {phase1Bruto > 0 && grandTotal > 0 && (
+        <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-slate-900 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏆</span>
+            <div>
+              <div className="text-sm font-bold text-amber-300">Total Mundial 2026 — Cobertura Completa</div>
+              <div className="text-xs text-amber-400/60">Fase de Grupos + Eliminatória ({scen.name})</div>
+            </div>
+          </div>
+
+          {/* Two columns: phase 1 + knockout */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="bg-slate-800/60 rounded-xl p-3 space-y-1">
+              <div className="font-semibold text-slate-400 uppercase tracking-wider text-xs mb-2">Fase de Grupos</div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Custo bruto</span>
+                <span className="text-slate-200 font-medium">{fmtEUR(phase1Bruto)}</span>
+              </div>
+              {phase1Sin>0 && (
+                <div className="flex justify-between">
+                  <span className="text-emerald-500">💚 Sinergia</span>
+                  <span className="text-emerald-400 font-medium">-{fmtEUR(phase1Sin)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-slate-700/40 pt-1 mt-1">
+                <span className="text-slate-300 font-semibold">Líquido</span>
+                <span className="text-emerald-300 font-bold">{fmtEUR(phase1Bruto - phase1Sin)}</span>
+              </div>
+            </div>
+            <div className="bg-violet-900/20 rounded-xl p-3 space-y-1">
+              <div className="font-semibold text-violet-400 uppercase tracking-wider text-xs mb-2">Eliminatória</div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Custo bruto</span>
+                <span className="text-slate-200 font-medium">{fmtEUR(grandTotal)}</span>
+              </div>
+              {totalSin>0 && (
+                <div className="flex justify-between">
+                  <span className="text-emerald-500">💚 Sinergia</span>
+                  <span className="text-emerald-400 font-medium">-{fmtEUR(totalSin)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-violet-700/30 pt-1 mt-1">
+                <span className="text-slate-300 font-semibold">Líquido</span>
+                <span className="text-emerald-300 font-bold">{fmtEUR(netTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Grand combined total */}
+          <div className="border-t border-amber-600/30 pt-3 space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-300">Total bruto Mundial</span>
+              <span className="text-white font-bold text-base">{fmtEUR(phase1Bruto + grandTotal)}</span>
+            </div>
+            {(phase1Sin + totalSin) > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-emerald-400">💚 Total Sinergia Brasil</span>
+                <span className="text-emerald-400 font-semibold">-{fmtEUR(phase1Sin + totalSin)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center border-t border-amber-600/40 pt-2.5 mt-1">
+              <div>
+                <div className="text-amber-300 font-bold text-base">🏆 Custo líquido total</div>
+                <div className="text-xs text-amber-400/60">Cobertura completa do Mundial</div>
+              </div>
+              <span className="text-amber-300 font-bold text-2xl">{fmtEUR((phase1Bruto - phase1Sin) + netTotal)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase1Bruto > 0 && grandTotal === 0 && (
+        <div className="rounded-2xl border border-slate-700/40 bg-slate-800/30 px-4 py-3 text-center">
+          <div className="text-xs text-slate-500">Ativa pelo menos uma fase acima para ver o total do Mundial</div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── APP ──────────────────────────────────────────────────────────────────────
-const TABS = [
-  {id:"home",       label:"🏠 Início",           },
-  {id:"agenda",     label:"📋 Pauta",            },
-  {id:"logistics",  label:"🧳 Logística",        },
-  {id:"pitch",      label:"🎙️ Pitch Positions",},
-  {id:"financeiro", label:"💰 Financeiro",       adminOnly:true},
-  {id:"schedule",   label:"📅 Calendário",       },
-  {id:"team",       label:"👥 Equipas",          },
+const TAB_GROUPS = [
+  {
+    id: "geral",
+    tabs: [
+      {id:"home", label:"Início", emoji:"🏠"},
+    ]
+  },
+  {
+    id: "conteudo",
+    label: "Conteúdo",
+    tabs: [
+      {id:"agenda",   label:"Pauta",      emoji:"📋"},
+      {id:"schedule", label:"Calendário", emoji:"📅"},
+    ]
+  },
+  {
+    id: "financeiro",
+    label: "Financeiro",
+    tabs: [
+      {id:"financeiro", label:"Financeiro", emoji:"💰", adminOnly:true},
+      {id:"logistics",  label:"Logística",  emoji:"🧳"},
+    ]
+  },
+  {
+    id: "operacao",
+    label: "Operação",
+    tabs: [
+      {id:"pitch", label:"Pitch",   emoji:"🎙️"},
+      {id:"team",  label:"Equipas", emoji:"👥"},
+    ]
+  },
 ];
+
+// Flat list for backward compat
+const TABS = TAB_GROUPS.flatMap(g => g.tabs);
 
 function App() {
   const [team,          setTeam]          = useState([]);
@@ -3174,8 +4867,9 @@ function App() {
   const [pitchData,     setPitchData]     = useState({});
   const [logistics,     setLogistics]     = useState({flights:[], hotels:[]});
   const [broadcastData, setBroadcastData] = useState({});
+  const [simulador,     setSimulador]     = useState([]);   // array of scenario objects
   const [tab,           setTab]           = useState("home");
-  const [userRole,      setUserRole]      = useState(null); // null | "admin" | "comercial" | "redes" | "transmite" | "financeiro"
+  const [userRole,      setUserRole]      = useState(null);
   const [isAdmin,       setIsAdmin]       = useState(false);
   const [showChangePw,  setShowChangePw]  = useState(false);
   const [dbLoading,     setDbLoading]     = useState(true);
@@ -3189,13 +4883,13 @@ function App() {
   const isRedes      = userRole === "redes";
 
   // Track last data synced from Firestore to avoid echo-writes
-  const lastSynced  = useRef({ team:null, agenda:null, pitch:null, logistics:null, broadcast:null });
+  const lastSynced  = useRef({ team:null, agenda:null, pitch:null, logistics:null, broadcast:null, simulador:null });
   const writeTimers = useRef({});
 
   // ── Firestore real-time listeners ──────────────────────────────────────────
   useEffect(() => {
     let loaded = 0;
-    const markLoaded = () => { if (++loaded >= 5) setDbLoading(false); };
+    const markLoaded = () => { if (++loaded >= 6) setDbLoading(false); };
     const col = db.collection("mundial2026");
     const onErr = e => { console.error(e); setDbError(e.message); };
 
@@ -3225,6 +4919,11 @@ function App() {
         lastSynced.current.broadcast = JSON.stringify(val);
         setBroadcastData(val); markLoaded();
       }, onErr),
+      col.doc("simulador").onSnapshot(snap => {
+        const val = snap.exists ? (snap.data().value || []) : [];
+        lastSynced.current.simulador = JSON.stringify(val);
+        setSimulador(val); markLoaded();
+      }, onErr),
     ];
     return () => unsubs.forEach(u => u());
   }, []);
@@ -3245,6 +4944,7 @@ function App() {
   useEffect(() => { if (!dbLoading) fsWrite("pitch",     "pitch",     pitchData);     }, [pitchData,     dbLoading]);
   useEffect(() => { if (!dbLoading) fsWrite("logistics", "logistics", logistics);     }, [logistics,     dbLoading]);
   useEffect(() => { if (!dbLoading) fsWrite("broadcast", "broadcast", broadcastData); }, [broadcastData, dbLoading]);
+  useEffect(() => { if (!dbLoading) fsWrite("simulador", "simulador", simulador);     }, [simulador,     dbLoading]);
 
   function handleLockClick() {
     setUserRole(null); setIsAdmin(false); // returns to login screen
@@ -3265,6 +4965,12 @@ function App() {
     </div>
   );
 
+  // Login vem SEMPRE primeiro — não bloquear com loading antes de autenticar
+  if (!userRole) return (
+    <LoginScreen onSuccess={(role)=>{ setUserRole(role); setIsAdmin(role==="admin"); }}/>
+  );
+
+  // Só mostra loading depois de logado, enquanto Firebase carrega dados
   if (dbLoading) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="text-center">
@@ -3279,10 +4985,6 @@ function App() {
         </div>
       </div>
     </div>
-  );
-
-  if (!userRole) return (
-    <LoginScreen onSuccess={(role)=>{ setUserRole(role); setIsAdmin(role==="admin"); }}/>
   );
 
   return (
@@ -3340,24 +5042,55 @@ function App() {
               )}
             </div>
           </div>
-          <div className="flex gap-0 overflow-x-auto no-scrollbar -mb-px">
-            {TABS.filter(t=>!t.adminOnly||isAdmin||isFinanceiro).map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${tab===t.id?"border-emerald-500 text-emerald-400":"border-transparent text-slate-400 hover:text-slate-200"}`}>
-                {t.emoji} {t.label}
-              </button>
-            ))}
+          <div className="flex overflow-x-auto no-scrollbar -mb-px items-end">
+            {TAB_GROUPS.map((group, gi) => {
+              const visibleTabs = group.tabs.filter(t => !t.adminOnly || isAdmin || isFinanceiro);
+              if (visibleTabs.length === 0) return null;
+              return (
+                <div key={group.id} className="flex items-end shrink-0">
+                  {/* Group separator + label (not for first group) */}
+                  {gi > 0 && (
+                    <div className="flex flex-col items-center self-stretch justify-end pb-0 mx-0.5">
+                      <div className="w-px h-5 bg-slate-700/60 mb-0"/>
+                    </div>
+                  )}
+                  {/* Group tabs */}
+                  <div className="flex flex-col">
+                    {group.label && (
+                      <div className="text-center px-2 pb-0.5">
+                        <span className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest whitespace-nowrap">
+                          {group.label}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex">
+                      {visibleTabs.map(t => (
+                        <button key={t.id} onClick={()=>setTab(t.id)}
+                          className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
+                            tab===t.id
+                              ? "border-emerald-500 text-emerald-400"
+                              : "border-transparent text-slate-400 hover:text-slate-200"
+                          }`}>
+                          <span>{t.emoji}</span>
+                          <span className="hidden sm:inline">{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-5">
-        {tab==="home"  && <Home  team={team} agenda={agenda} broadcastData={broadcastData}/>}
+        {tab==="home"  && <Home  team={team} agenda={agenda} broadcastData={broadcastData} logistics={logistics}/>}
         {tab==="agenda"     && <Agenda     team={team} isAdmin={isAdmin} userRole={userRole} agenda={agenda} setAgenda={setAgenda} pitchData={pitchData} logistics={logistics} broadcastData={broadcastData}/>}
         {tab==="logistics"  && <Logistics  team={team} isAdmin={isAdmin} logistics={logistics} setLogistics={setLogistics}/>}
         {tab==="pitch"      && <PitchTab   team={team} isAdmin={isAdmin} userRole={userRole} pitchData={pitchData} setPitchData={setPitchData}/>}
-        {tab==="financeiro" && (isAdmin||isFinanceiro) && <FinanceDashboard team={team} agenda={agenda} pitchData={pitchData} logistics={logistics}/>}
+        {tab==="financeiro" && (isAdmin||isFinanceiro) && <FinanceDashboard team={team} agenda={agenda} pitchData={pitchData} logistics={logistics} setLogistics={setLogistics} simulador={simulador} setSimulador={setSimulador}/>}
         {tab==="schedule"   && <Schedule   team={team} broadcastData={broadcastData} setBroadcastData={setBroadcastData} isAdmin={isAdmin}/>}
         {tab==="team"       && <TeamTab    team={team} setTeam={setTeam} isAdmin={isAdmin}/>}
       </div>
